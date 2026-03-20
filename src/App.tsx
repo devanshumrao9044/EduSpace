@@ -7,7 +7,10 @@ import AdminDashboard from '@/pages/AdminDashboard'
 import QuizList from '@/pages/admin/QuizList'
 import CreateQuiz from '@/pages/admin/CreateQuiz'
 import ManageQuestions from '@/pages/admin/ManageQuestions'
+import QuizResults from '@/pages/admin/QuizResults'
 import QuizDetail from '@/pages/QuizDetail'
+import QuizAttempt from '@/pages/QuizAttempt'
+import QuizResult from '@/pages/QuizResult'
 import NotFound from '@/pages/NotFound'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 
@@ -33,6 +36,30 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <QuizDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/:quizId/attempt"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizAttempt />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/:quizId/result"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizResult />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/:quizId/review"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizResult />
             </ProtectedRoute>
           }
         />
@@ -67,6 +94,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <ManageQuestions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/quiz/:quizId/results"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <QuizResults />
             </ProtectedRoute>
           }
         />
