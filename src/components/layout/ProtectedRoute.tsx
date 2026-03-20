@@ -15,13 +15,20 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     const checkAuth = async () => {
       const currentUser = await authService.getCurrentUser()
+      console.log('ProtectedRoute - User loaded:', currentUser)
       setUser(currentUser)
       setLoading(false)
     }
     checkAuth()
   }, [])
 
-  console.log('ProtectedRoute check:', { loading, user, allowedRoles })
+  console.log('ProtectedRoute check:', { 
+    loading, 
+    userRole: user?.role, 
+    userEmail: user?.email,
+    allowedRoles,
+    hasAccess: allowedRoles ? allowedRoles.includes(user?.role || '') : true
+  })
 
   if (loading) {
     return (

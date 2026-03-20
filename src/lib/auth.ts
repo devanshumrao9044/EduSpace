@@ -123,6 +123,13 @@ export const authService = {
       return null
     }
 
+    console.log('getCurrentUser - Profile data:', {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      roleType: typeof profile.role
+    })
+
     return {
       id: profile.id,
       email: profile.email,
