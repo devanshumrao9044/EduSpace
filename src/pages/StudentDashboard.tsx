@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, LogOut, Clock, Calendar, Award, PlayCircle, CheckCircle, AlertCircle, Shield } from 'lucide-react'
+import { Clock, Calendar, Award, PlayCircle, CheckCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { authService, type User } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Sidebar from '@/components/layout/Sidebar'
 import type { Quiz, QuizAttempt } from '@/types/database'
 
 interface QuizWithAttempt extends Quiz {
@@ -37,7 +38,6 @@ export default function StudentDashboard() {
       const currentUser = await authService.getCurrentUser()
       if (!currentUser) return
 
-      // Fetch all active quizzes
       const { data: quizzes, error: quizzesError } = await supabase
         .from('quizzes')
         .select('*')
@@ -46,7 +46,6 @@ export default function StudentDashboard() {
 
       if (quizzesError) throw quizzesError
 
-      // Fetch user's attempts
       const { data: attempts, error: attemptsError } = await supabase
         .from('quiz_attempts')
         .select('*')
@@ -55,8 +54,6 @@ export default function StudentDashboard() {
       if (attemptsError) throw attemptsError
 
       const now = new Date()
-
-      // Categorize quizzes
       const available: QuizWithAttempt[] = []
       const upcoming: QuizWithAttempt[] = []
       const attempted: QuizWithAttempt[] = []
@@ -85,12 +82,6 @@ export default function StudentDashboard() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleLogout = async () => {
-    await authService.logout()
-    toast.success('Logged out successfully')
-    navigate('/login', { replace: true })
   }
 
   const formatDate = (dateString: string) => {
@@ -193,154 +184,106 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">EduSpace</h1>
-                <p className="text-sm text-muted-foreground">Student Portal</p>
-              </div>
-            </div>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
 
-            <div className="flex items-center gap-4">
-              {user?.role === 'admin' && (
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={() => navigate('/admin/dashboard')}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Admin Panel
-                </Button>
-              )}
-              <div className="hidden sm:block text-right">
-                <p className="text-sm font-semibold text-foreground">{user?.full_name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+      <main className="flex-1 md:ml-0 overflow-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16 md:mt-0">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-foreground mb-2">
+              Welcome back, {user?.full_name?.split(' ')[0]}! 👋
+            </h2>
+            <p className="text-muted-foreground">
+              View and attempt your quizzes
+            </p>
           </div>
+
+          <Tabs defaultValue="available" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 max-w-md">
+              <TabsTrigger value="available" className="gap-2">
+                <PlayCircle className="w-4 h-4" />
+                Available
+                {availableQuizzes.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{availableQuizzes.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="upcoming" className="gap-2">
+                <Clock className="w-4 h-4" />
+                Upcoming
+                {upcomingQuizzes.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{upcomingQuizzes.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="attempted" className="gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Attempted
+                {attemptedQuizzes.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{attemptedQuizzes.length}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="available" className="space-y-4">
+              {availableQuizzes.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg mb-2">No quizzes available</h3>
+                    <p className="text-muted-foreground">
+                      Check back later for new quizzes
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {availableQuizzes.map(quiz => (
+                    <QuizCard key={quiz.id} quiz={quiz} type="available" />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="upcoming" className="space-y-4">
+              {upcomingQuizzes.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg mb-2">No upcoming quizzes</h3>
+                    <p className="text-muted-foreground">
+                      All quizzes are either available or completed
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {upcomingQuizzes.map(quiz => (
+                    <QuizCard key={quiz.id} quiz={quiz} type="upcoming" />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="attempted" className="space-y-4">
+              {attemptedQuizzes.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="font-semibold text-lg mb-2">No attempted quizzes</h3>
+                    <p className="text-muted-foreground">
+                      Start attempting quizzes to see them here
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {attemptedQuizzes.map(quiz => (
+                    <QuizCard key={quiz.id} quiz={quiz} type="attempted" />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-bold text-foreground mb-2">
-                Welcome back, {user?.full_name?.split(' ')[0]}! 👋
-              </h2>
-              <p className="text-muted-foreground">
-                View and attempt your quizzes
-              </p>
-            </div>
-            {user?.role === 'admin' && (
-              <Button 
-                size="lg"
-                onClick={() => navigate('/admin/dashboard')}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
-              >
-                <Shield className="w-5 h-5 mr-2" />
-                Go to Admin Panel
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <Tabs defaultValue="available" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
-            <TabsTrigger value="available" className="gap-2">
-              <PlayCircle className="w-4 h-4" />
-              Available
-              {availableQuizzes.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{availableQuizzes.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="upcoming" className="gap-2">
-              <Clock className="w-4 h-4" />
-              Upcoming
-              {upcomingQuizzes.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{upcomingQuizzes.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="attempted" className="gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Attempted
-              {attemptedQuizzes.length > 0 && (
-                <Badge variant="secondary" className="ml-1">{attemptedQuizzes.length}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="available" className="space-y-4">
-            {availableQuizzes.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">No quizzes available</h3>
-                  <p className="text-muted-foreground">
-                    Check back later for new quizzes
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {availableQuizzes.map(quiz => (
-                  <QuizCard key={quiz.id} quiz={quiz} type="available" />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="upcoming" className="space-y-4">
-            {upcomingQuizzes.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">No upcoming quizzes</h3>
-                  <p className="text-muted-foreground">
-                    All quizzes are either available or completed
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {upcomingQuizzes.map(quiz => (
-                  <QuizCard key={quiz.id} quiz={quiz} type="upcoming" />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="attempted" className="space-y-4">
-            {attemptedQuizzes.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-semibold text-lg mb-2">No attempted quizzes</h3>
-                  <p className="text-muted-foreground">
-                    Start attempting quizzes to see them here
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {attemptedQuizzes.map(quiz => (
-                  <QuizCard key={quiz.id} quiz={quiz} type="attempted" />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
       </main>
     </div>
   )

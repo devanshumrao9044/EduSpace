@@ -1,25 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Download, Eye, Trophy, Users, BarChart3 } from 'lucide-react'
+import { ArrowLeft, Award, Calendar, Download, TrendingUp, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { supabase } from '@/lib/supabase'
 import type { Quiz, QuizAttempt } from '@/types/database'
-import Papa from 'papaparse'
 
 interface AttemptWithProfile extends QuizAttempt {
-  student_name: string
-  student_email: string
+  profiles?: {
+    full_name: string
+    email: string
+  }
+  rank?: number
 }
 
 export default function QuizResults() {
@@ -28,101 +22,153 @@ export default function QuizResults() {
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [attempts, setAttempts] = useState<AttemptWithProfile[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
-    loadResults()
+    if (quizId) {
+      loadQuiz()
+      loadAttempts()
+    }
   }, [quizId])
 
-  const loadResults = async () => {
+  const loadQuiz = async () => {
     try {
-      const { data: quizData, error: quizError } = await supabase
+      const { data, error } = await supabase
         .from('quizzes')
         .select('*')
         .eq('id', quizId)
         .single()
 
-      if (quizError) throw quizError
-      setQuiz(quizData)
+      if (error) throw error
+      setQuiz(data)
+    } catch (error: any) {
+      console.error('Error loading quiz:', error)
+      toast.error('Failed to load quiz')
+    }
+  }
 
-      // Get attempts with student profiles
-      const { data: attemptsData, error: attemptsError } = await supabase
+  const loadAttempts = async () => {
+    try {
+      const { data, error } = await supabase
         .from('quiz_attempts')
         .select(`
           *,
-          profiles!quiz_attempts_student_id_fkey (
+          profiles!inner (
             full_name,
             email
           )
         `)
         .eq('quiz_id', quizId)
         .not('submitted_at', 'is', null)
-        .order('score', { ascending: false, nullsFirst: false })
-        .order('submitted_at', { ascending: true })
+        .order('score', { ascending: false })
 
-      if (attemptsError) throw attemptsError
+      if (error) throw error
 
-      const attemptsWithProfiles = attemptsData?.map((attempt: any) => ({
-        ...attempt,
-        student_name: attempt.profiles?.full_name || 'Unknown',
-        student_email: attempt.profiles?.email || 'Unknown'
-      })) || []
+      // Calculate ranks
+      const rankedAttempts = (data || []).map((attempt, index, arr) => {
+        let rank = index + 1
+        
+        // Check if previous attempt has same score
+        if (index > 0 && arr[index - 1].score === attempt.score) {
+          // Find the first occurrence of this score
+          const firstWithScore = arr.findIndex(a => a.score === attempt.score)
+          rank = firstWithScore + 1
+        }
+        
+        return { ...attempt, rank }
+      })
 
-      setAttempts(attemptsWithProfiles)
+      setAttempts(rankedAttempts)
     } catch (error: any) {
-      console.error('Error loading results:', error)
-      toast.error('Failed to load results')
+      console.error('Error loading attempts:', error)
+      toast.error('Failed to load attempts')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleGenerateRanks = async () => {
+    if (!quiz) return
+
+    setGenerating(true)
+    try {
+      // Update all attempts to mark them as evaluated
+      const { error } = await supabase
+        .from('quiz_attempts')
+        .update({ is_evaluated: true })
+        .eq('quiz_id', quizId)
+        .not('submitted_at', 'is', null)
+
+      if (error) throw error
+
+      toast.success('Ranks generated and results published!')
+      loadAttempts()
+    } catch (error: any) {
+      console.error('Error generating ranks:', error)
+      toast.error('Failed to generate ranks')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const handleExportCSV = () => {
-    if (!attempts.length) {
-      toast.error('No data to export')
+    if (attempts.length === 0) {
+      toast.error('No attempts to export')
       return
     }
 
-    const csvData = attempts.map((attempt, index) => ({
-      Rank: index + 1,
-      'Student Name': attempt.student_name,
-      'Student Email': attempt.student_email,
-      'Score': attempt.score || 0,
+    const csvData = attempts.map(attempt => ({
+      Rank: attempt.rank,
+      Name: attempt.profiles?.full_name || 'N/A',
+      Email: attempt.profiles?.email || 'N/A',
+      Score: attempt.score || 0,
       'Total Marks': quiz?.total_marks || 0,
-      'Percentage': ((attempt.score || 0) / (quiz?.total_marks || 1) * 100).toFixed(2) + '%',
-      'Status': attempt.is_evaluated ? 'Evaluated' : 'Pending',
+      Percentage: quiz ? ((attempt.score || 0) / quiz.total_marks * 100).toFixed(2) : 0,
+      Status: (attempt.score || 0) >= (quiz?.passing_marks || 0) ? 'Passed' : 'Failed',
       'Submitted At': new Date(attempt.submitted_at!).toLocaleString(),
-      'Time Taken': calculateTimeTaken(attempt)
+      Published: attempt.is_evaluated ? 'Yes' : 'No'
     }))
 
-    const csv = Papa.unparse(csvData)
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const headers = Object.keys(csvData[0])
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${quiz?.title}_results.csv`
+    a.download = `${quiz?.title || 'quiz'}_results.csv`
     a.click()
     URL.revokeObjectURL(url)
-
-    toast.success('Results exported successfully')
+    toast.success('Results exported successfully!')
   }
 
-  const calculateTimeTaken = (attempt: QuizAttempt) => {
-    const start = new Date(attempt.started_at).getTime()
-    const end = new Date(attempt.submitted_at!).getTime()
-    const minutes = Math.floor((end - start) / 60000)
-    return `${minutes} min`
+  const calculateStats = () => {
+    if (attempts.length === 0) {
+      return {
+        avgScore: 0,
+        passRate: 0,
+        highestScore: 0,
+        lowestScore: 0
+      }
+    }
+
+    const scores = attempts.map(a => a.score || 0)
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length
+    const passed = attempts.filter(a => (a.score || 0) >= (quiz?.passing_marks || 0)).length
+    const passRate = (passed / attempts.length) * 100
+
+    return {
+      avgScore: Math.round(avgScore * 10) / 10,
+      passRate: Math.round(passRate * 10) / 10,
+      highestScore: Math.max(...scores),
+      lowestScore: Math.min(...scores)
+    }
   }
 
-  const getStats = () => {
-    if (!attempts.length || !quiz) return { avgScore: 0, passRate: 0, totalAttempts: 0 }
-
-    const totalAttempts = attempts.length
-    const avgScore = attempts.reduce((sum, a) => sum + (a.score || 0), 0) / totalAttempts
-    const passed = attempts.filter(a => (a.score || 0) >= quiz.passing_marks).length
-    const passRate = (passed / totalAttempts) * 100
-
-    return { avgScore, passRate, totalAttempts }
-  }
+  const stats = calculateStats()
 
   if (loading) {
     return (
@@ -135,66 +181,58 @@ export default function QuizResults() {
     )
   }
 
-  const stats = getStats()
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+      <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/admin/quizzes')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Quizzes
           </Button>
-          <div className="mt-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{quiz?.title}</h1>
-              <p className="text-muted-foreground">Quiz Results & Analytics</p>
-            </div>
-            <Button onClick={handleExportCSV} disabled={!attempts.length}>
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
+          <div className="mt-4">
+            <h1 className="text-2xl font-bold text-foreground">{quiz?.title}</h1>
+            <p className="text-muted-foreground">Quiz Results & Rankings</p>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Total Attempts</p>
-                  <p className="text-3xl font-bold">{stats.totalAttempts}</p>
+                  <p className="text-3xl font-bold text-foreground">{attempts.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
+                  <Award className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Average Score</p>
-                  <p className="text-3xl font-bold">{stats.avgScore.toFixed(1)}</p>
+                  <p className="text-3xl font-bold text-foreground">{stats.avgScore}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-purple-600" />
+                  <TrendingUp className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Pass Rate</p>
-                  <p className="text-3xl font-bold">{stats.passRate.toFixed(1)}%</p>
+                  <p className="text-3xl font-bold text-foreground">{stats.passRate}%</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <Trophy className="w-6 h-6 text-green-600" />
@@ -202,88 +240,112 @@ export default function QuizResults() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Highest Score</p>
+                  <p className="text-3xl font-bold text-foreground">{stats.highestScore}</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Award className="w-6 h-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-4 mb-6">
+          <Button onClick={handleGenerateRanks} disabled={generating || attempts.length === 0}>
+            <Trophy className="w-4 h-4 mr-2" />
+            {generating ? 'Generating...' : 'Generate Ranks & Publish Results'}
+          </Button>
+          <Button variant="outline" onClick={handleExportCSV} disabled={attempts.length === 0}>
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Results Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Student Submissions</CardTitle>
-            <CardDescription>Ranked by score and submission time</CardDescription>
+            <CardTitle>Student Rankings</CardTitle>
+            <CardDescription>
+              Ordered by score DESC, then submission time ASC
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {attempts.length === 0 ? (
               <div className="text-center py-12">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="font-semibold text-lg mb-2">No submissions yet</h3>
-                <p className="text-muted-foreground">Student submissions will appear here</p>
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="font-semibold text-lg mb-2">No attempts yet</h3>
+                <p className="text-muted-foreground">
+                  Students haven't attempted this quiz yet
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead className="text-center">Score</TableHead>
-                      <TableHead className="text-center">Time</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Submitted</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Rank</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Student</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Score</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Percentage</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Submitted</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Published</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
                     {attempts.map((attempt, index) => {
-                      const percentage = ((attempt.score || 0) / (quiz?.total_marks || 1)) * 100
+                      const percentage = quiz ? ((attempt.score || 0) / quiz.total_marks * 100) : 0
                       const passed = (attempt.score || 0) >= (quiz?.passing_marks || 0)
 
                       return (
-                        <TableRow key={attempt.id}>
-                          <TableCell>
+                        <tr key={attempt.id} className={index === 0 ? 'bg-yellow-50' : ''}>
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              {index === 0 && <Trophy className="w-4 h-4 text-yellow-500" />}
-                              <span className="font-semibold">#{index + 1}</span>
+                              {attempt.rank === 1 && <Trophy className="w-5 h-5 text-yellow-500" />}
+                              <span className="font-semibold text-foreground">#{attempt.rank}</span>
                             </div>
-                          </TableCell>
-                          <TableCell className="font-medium">{attempt.student_name}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {attempt.student_email}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex flex-col items-center gap-1">
-                              <span className={`font-bold ${passed ? 'text-green-600' : 'text-red-600'}`}>
-                                {attempt.score}/{quiz?.total_marks}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {percentage.toFixed(1)}%
-                              </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-foreground">{attempt.profiles?.full_name}</p>
+                              <p className="text-sm text-muted-foreground">{attempt.profiles?.email}</p>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-center text-sm">
-                            {calculateTimeTaken(attempt)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={attempt.is_evaluated ? 'default' : 'secondary'}>
-                              {attempt.is_evaluated ? 'Published' : 'Pending'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-foreground">
+                              {attempt.score || 0}/{quiz?.total_marks}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-foreground">{percentage.toFixed(1)}%</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={passed ? 'default' : 'destructive'}>
+                              {passed ? 'Passed' : 'Failed'}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="text-center text-sm text-muted-foreground">
-                            {new Date(attempt.submitted_at!).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/admin/quiz/${quizId}/attempt/${attempt.id}`)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-muted-foreground">
+                              {new Date(attempt.submitted_at!).toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={attempt.is_evaluated ? 'default' : 'secondary'}>
+                              {attempt.is_evaluated ? 'Yes' : 'No'}
+                            </Badge>
+                          </td>
+                        </tr>
                       )
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

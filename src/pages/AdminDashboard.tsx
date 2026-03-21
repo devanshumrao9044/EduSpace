@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
-import { BookOpen, LogOut, Users, FileText, Plus, BarChart3, ListTodo, GraduationCap } from 'lucide-react'
+import { BookOpen, Users, FileText, Plus, BarChart3, ListTodo } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authService, type User } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Sidebar from '@/components/layout/Sidebar'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
@@ -45,13 +45,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    console.log('Logging out...')
-    await authService.logout()
-    toast.success('Logged out successfully')
-    navigate('/login', { replace: true })
-  }
-
   const statsCards = [
     { label: 'Total Quizzes', value: stats.totalQuizzes.toString(), icon: FileText, color: 'bg-blue-100 text-blue-600' },
     { label: 'Active Quizzes', value: stats.activeQuizzes.toString(), icon: ListTodo, color: 'bg-green-100 text-green-600' },
@@ -60,113 +53,80 @@ export default function AdminDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">EduSpace</h1>
-                <p className="text-sm text-muted-foreground">Admin Control Panel</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/dashboard')}
-              >
-                <GraduationCap className="w-4 h-4 mr-2" />
-                Student View
-              </Button>
-              <div className="hidden sm:block text-right">
-                <p className="text-sm font-semibold text-foreground">{user?.full_name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
+
+      <main className="flex-1 md:ml-0 overflow-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16 md:mt-0">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-foreground mb-2">
+              Admin Dashboard
+            </h2>
+            <p className="text-muted-foreground">
+              Manage quizzes, monitor performance, and support your students
+            </p>
           </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Admin Dashboard
-          </h2>
-          <p className="text-muted-foreground">
-            Manage quizzes, monitor performance, and support your students
-          </p>
-        </div>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {statsCards.map((stat) => (
+              <Card key={stat.label} className="border-0 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                      <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                    </div>
+                    <div className={`w-12 h-12 rounded-lg ${stat.color} flex items-center justify-center`}>
+                      <stat.icon className="w-6 h-6" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statsCards.map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+          {/* Quick Actions */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Actions</CardTitle>
+                <CardDescription>Manage quizzes and platform</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full justify-start" onClick={() => navigate('/admin/quiz/new')}>
+                  <Plus className="w-4 h-4 mr-3" />
+                  Create New Quiz
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/quizzes')}>
+                  <ListTodo className="w-4 h-4 mr-3" />
+                  Manage Quizzes
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/analytics')}>
+                  <BarChart3 className="w-4 h-4 mr-3" />
+                  View Analytics
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm md:col-span-2 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+              <CardContent className="p-8">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-2xl mb-2">Quiz Management System</h3>
+                    <p className="text-sm opacity-90 mb-6">
+                      Create, manage, and evaluate quizzes efficiently. Track student performance and generate insights.
+                    </p>
+                    <Button variant="secondary" onClick={() => navigate('/admin/quizzes')}>
+                      Get Started
+                    </Button>
                   </div>
-                  <div className={`w-12 h-12 rounded-lg ${stat.color} flex items-center justify-center`}>
-                    <stat.icon className="w-6 h-6" />
-                  </div>
+                  <FileText className="w-20 h-20 opacity-80 hidden lg:block" />
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-              <CardDescription>Manage quizzes and platform</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full justify-start" onClick={() => navigate('/admin/quiz/new')}>
-                <Plus className="w-4 h-4 mr-3" />
-                Create New Quiz
-              </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/quizzes')}>
-                <ListTodo className="w-4 h-4 mr-3" />
-                Manage Quizzes
-              </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/analytics')}>
-                <BarChart3 className="w-4 h-4 mr-3" />
-                View Analytics
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm md:col-span-2 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-            <CardContent className="p-8">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="font-bold text-2xl mb-2">Quiz Management System</h3>
-                  <p className="text-sm opacity-90 mb-6">
-                    Create, manage, and evaluate quizzes efficiently. Track student performance and generate insights.
-                  </p>
-                  <Button variant="secondary" onClick={() => navigate('/admin/quizzes')}>
-                    Get Started
-                  </Button>
-                </div>
-                <FileText className="w-20 h-20 opacity-80 hidden lg:block" />
-              </div>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </main>
     </div>
