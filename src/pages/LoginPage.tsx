@@ -172,9 +172,9 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Tip: Use an email with "admin" for admin access
+              <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <p className="text-sm text-blue-900">
+                  <strong>Note:</strong> Access level is determined by your role in the database, not your email address.
                 </p>
               </div>
             </CardContent>

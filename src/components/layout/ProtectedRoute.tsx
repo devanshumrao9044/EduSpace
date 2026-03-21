@@ -15,7 +15,12 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   useEffect(() => {
     const checkAuth = async () => {
       const currentUser = await authService.getCurrentUser()
-      console.log('ProtectedRoute - User loaded:', currentUser)
+      console.log('ProtectedRoute - Auth Check:', {
+        userId: currentUser?.id,
+        email: currentUser?.email,
+        databaseRole: currentUser?.role,
+        allowedRoles: allowedRoles
+      })
       setUser(currentUser)
       setLoading(false)
     }
@@ -35,12 +40,23 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Allow admins to access student routes
     if (user.role === 'admin' && allowedRoles.includes('student')) {
+      console.log('ProtectedRoute - Admin accessing student route: ALLOWED')
       return <>{children}</>
     }
+    
+    console.log('ProtectedRoute - Access denied:', {
+      userRole: user.role,
+      requiredRoles: allowedRoles,
+      redirecting: user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+    })
+    
     const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
     return <Navigate to={redirectPath} replace />
   }
+
+  console.log('ProtectedRoute - Access granted:', { userRole: user.role, allowedRoles })
 
   return <>{children}</>
 }

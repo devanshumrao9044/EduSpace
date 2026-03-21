@@ -123,19 +123,21 @@ export const authService = {
       return null
     }
 
-    console.log('getCurrentUser - Profile data:', {
-      id: profile.id,
-      email: profile.email,
-      role: profile.role,
-      roleType: typeof profile.role
-    })
-
-    return {
+    const user: User = {
       id: profile.id,
       email: profile.email,
       full_name: profile.full_name,
       role: profile.role as 'student' | 'admin',
     }
+
+    console.log('getCurrentUser - SUCCESS:', {
+      email: user.email,
+      databaseRole: profile.role,
+      mappedRole: user.role,
+      source: 'profiles table'
+    })
+
+    return user
   },
 
   async isAuthenticated(): Promise<boolean> {
