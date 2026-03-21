@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, LogOut, Clock, Calendar, Award, PlayCircle, CheckCircle, AlertCircle } from 'lucide-react'
+import { BookOpen, LogOut, Clock, Calendar, Award, PlayCircle, CheckCircle, AlertCircle, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -208,9 +208,20 @@ export default function StudentDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
+              {user?.role === 'admin' && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => navigate('/admin/dashboard')}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Admin Panel
+                </Button>
+              )}
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-semibold text-foreground">{user?.full_name}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
               </div>
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
@@ -223,12 +234,26 @@ export default function StudentDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.full_name?.split(' ')[0]}! 👋
-          </h2>
-          <p className="text-muted-foreground">
-            View and attempt your quizzes
-          </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground mb-2">
+                Welcome back, {user?.full_name?.split(' ')[0]}! 👋
+              </h2>
+              <p className="text-muted-foreground">
+                View and attempt your quizzes
+              </p>
+            </div>
+            {user?.role === 'admin' && (
+              <Button 
+                size="lg"
+                onClick={() => navigate('/admin/dashboard')}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
+              >
+                <Shield className="w-5 h-5 mr-2" />
+                Go to Admin Panel
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="available" className="space-y-6">

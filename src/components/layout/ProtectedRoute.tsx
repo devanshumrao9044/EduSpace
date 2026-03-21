@@ -22,14 +22,6 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     checkAuth()
   }, [])
 
-  console.log('ProtectedRoute check:', { 
-    loading, 
-    userRole: user?.role, 
-    userEmail: user?.email,
-    allowedRoles,
-    hasAccess: allowedRoles ? allowedRoles.includes(user?.role || '') : true
-  })
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -39,12 +31,13 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }
 
   if (!user) {
-    console.log('User not authenticated, redirecting to login')
     return <Navigate to="/login" replace />
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    console.log('User does not have required role, redirecting')
+    if (user.role === 'admin' && allowedRoles.includes('student')) {
+      return <>{children}</>
+    }
     const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
     return <Navigate to={redirectPath} replace />
   }

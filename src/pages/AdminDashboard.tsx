@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, LogOut, Users, FileText, Plus, BarChart3, ListTodo } from 'lucide-react'
+import { BookOpen, LogOut, Users, FileText, Plus, BarChart3, ListTodo, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { authService, type User } from '@/lib/auth'
@@ -76,6 +76,14 @@ export default function AdminDashboard() {
             </div>
             
             <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/dashboard')}
+              >
+                <GraduationCap className="w-4 h-4 mr-2" />
+                Student View
+              </Button>
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-semibold text-foreground">{user?.full_name}</p>
                 <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
