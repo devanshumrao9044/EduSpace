@@ -79,14 +79,20 @@ export default function CreateQuiz() {
         return
       }
 
+            // Convert Local Time to Proper ISO format for Supabase
+      const formattedData = {
+        ...formData,
+        start_time: new Date(formData.start_time).toISOString(),
+        end_time: new Date(formData.end_time).toISOString(),
+        created_by: user.id
+      }
+
       const { data, error } = await supabase
         .from('quizzes')
-        .insert({
-          ...formData,
-          created_by: user.id
-        })
+        .insert(formattedData)
         .select()
         .single()
+
 
       if (error) throw error
 
