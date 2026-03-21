@@ -144,7 +144,7 @@ export default function AdminDashboard() {
                 <ListTodo className="w-4 h-4 mr-3" />
                 Manage Quizzes
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/analytics')}>
                 <BarChart3 className="w-4 h-4 mr-3" />
                 View Analytics
               </Button>

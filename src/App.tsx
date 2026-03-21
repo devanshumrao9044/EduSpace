@@ -8,6 +8,7 @@ import QuizList from '@/pages/admin/QuizList'
 import CreateQuiz from '@/pages/admin/CreateQuiz'
 import ManageQuestions from '@/pages/admin/ManageQuestions'
 import QuizResults from '@/pages/admin/QuizResults'
+import Analytics from '@/pages/admin/Analytics'
 import QuizDetail from '@/pages/QuizDetail'
 import QuizAttempt from '@/pages/QuizAttempt'
 import QuizResult from '@/pages/QuizResult'
@@ -102,6 +103,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <QuizResults />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Analytics />
             </ProtectedRoute>
           }
         />
