@@ -150,7 +150,6 @@ export default function QuizResult() {
 
   const stats = calculateStats()
   const passed = attempt.score !== null && attempt.score >= quiz.passing_marks
-  const passed = attempt.score !== null && attempt.score >= quiz.passing_marks
   
   // FIXED LOGIC: Only show results if the quiz settings explicitly allow it.
   const showDetailedResults = quiz.show_results_immediately;
