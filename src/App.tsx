@@ -14,6 +14,8 @@ import QuizAttempt from '@/pages/QuizAttempt'
 import QuizResult from '@/pages/QuizResult'
 import NotFound from '@/pages/NotFound'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import EditQuiz from '@/pages/admin/EditQuiz' // Path apne hisaab se check kar lena
+
 
 function App() {
   return (
@@ -74,6 +76,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Routes>
+  {/* Baaki saare routes... */}
+  
+  {/* Admin Routes ke aas paas isko daal dein */}
+  <Route path="/admin/quizzes" element={<ManageQuizzes />} />
+  <Route path="/admin/quiz/create" element={<CreateQuiz />} />
+  
+  {/* Yeh rahi aapki nayi line 👇 */}
+  <Route path="/admin/quiz/:id/edit" element={<EditQuiz />} />
+  
+</Routes>
+
         <Route
           path="/admin/quizzes"
           element={
