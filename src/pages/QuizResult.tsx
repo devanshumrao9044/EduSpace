@@ -1,4 +1,4 @@
-pimport { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Award, Clock, CheckCircle, XCircle, AlertCircle, Trophy } from 'lucide-react'
