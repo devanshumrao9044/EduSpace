@@ -27,7 +27,7 @@ export default function EditQuiz() {
     show_results_immediately: false,
   })
 
-  // Supabase ke UTC time ko Local Form time mein convert karne ke liye
+  // Database ke UTC time ko aapke local format mein badalne ke liye
   const formatToLocalDatetime = (dateString: string) => {
     if (!dateString) return ''
     const date = new Date(dateString)
@@ -101,7 +101,7 @@ export default function EditQuiz() {
     try {
       const formattedData = {
         ...formData,
-        // Save karte waqt wapas correct global time mein convert karo
+        // Wapas database mein bhejte time proper ISO format mein set karna
         start_time: new Date(formData.start_time).toISOString(),
         end_time: new Date(formData.end_time).toISOString(),
       }
@@ -125,7 +125,7 @@ export default function EditQuiz() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
@@ -217,5 +217,11 @@ export default function EditQuiz() {
             <Button type="button" variant="outline" onClick={() => navigate('/admin/quizzes')}>Cancel</Button>
             <Button type="submit" disabled={saving}>
               <Save className="w-4 h-4 mr-2" />
-              {
-
+              {saving ? 'Updating...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </main>
+    </div>
+  )
+}
