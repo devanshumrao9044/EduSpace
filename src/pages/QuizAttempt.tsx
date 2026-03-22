@@ -242,18 +242,29 @@ export default function QuizAttempt() {
         }
       })
 
-      // Update attempt
-      const { error } = await supabase
+            // Ensure we have a valid ISO string for the exact current time
+      const submitTime = new Date().toISOString()
+
+      // Update attempt and explicitly select the updated row to ensure it saved
+      const { data: updatedAttempt, error } = await supabase
         .from('quiz_attempts')
         .update({
-          submitted_at: new Date().toISOString(),
-          answers,
+          submitted_at: submitTime,
+          answers: answers,
           score: totalScore,
           is_evaluated: !questions.some(q => q.question_type === 'paragraph')
         })
         .eq('id', attempt.id)
+        .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        console.error("Supabase Update Error:", error)
+        throw error
+      }
+
+      console.log("Successfully submitted attempt:", updatedAttempt)
+
 
       toast.success('Quiz submitted successfully!')
       navigate(`/quiz/${quizId}/result`)
