@@ -203,6 +203,12 @@ export default function QuizList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {/* 👇 NAYA EDIT DETAILS/TIME BUTTON YAHAN ADD KIYA HAI 👇 */}
+                            <DropdownMenuItem onClick={() => navigate(`/admin/quiz/${quiz.id}/edit`)}>
+                              <Calendar className="w-4 h-4 mr-2" />
+                              Edit Details & Time
+                            </DropdownMenuItem>
+                            {/* 👆 YAHAN TAK 👆 */}
                             <DropdownMenuItem onClick={() => navigate(`/admin/quiz/${quiz.id}/questions`)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Manage Questions
