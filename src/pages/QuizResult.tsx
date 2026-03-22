@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+pimport { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Award, Clock, CheckCircle, XCircle, AlertCircle, Trophy } from 'lucide-react'
@@ -152,7 +152,7 @@ export default function QuizResult() {
   const passed = attempt.score !== null && attempt.score >= quiz.passing_marks
   
   // FIXED LOGIC: Strict check for Admin settings
-  const showDetailedResults = quiz.show_results_immediately === true;
+  const showDetailedResults = quiz.show_results_immediately === false;
 
   return (
     <div className="min-h-screen bg-gray-50">
