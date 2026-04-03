@@ -151,8 +151,8 @@ export default function QuizResult() {
   const stats = calculateStats()
   const passed = attempt.score !== null && attempt.score >= quiz.passing_marks
   
-  // FIXED LOGIC: Strict check for Admin settings
-  const showDetailedResults = quiz.show_results_immediately === false;
+  // Show detailed results only when admin has enabled it
+  const showDetailedResults = quiz.show_results_immediately === true;
 
   return (
     <div className="min-h-screen bg-gray-50">

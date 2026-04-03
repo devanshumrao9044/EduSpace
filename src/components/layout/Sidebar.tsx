@@ -148,7 +148,7 @@ export default function Sidebar({ user }: SidebarProps) {
             </div>
 
             {/* Admin Section - Only show if user is admin */}
-            {true && (
+            {user?.role === 'admin' && (
               <div>
                 <div className="flex items-center gap-2 mb-3 px-4">
                   <Shield className="w-4 h-4 text-purple-600" />
