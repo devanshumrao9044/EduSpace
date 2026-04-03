@@ -49,6 +49,16 @@ export default function QuizAttempt() {
 
   const saveTimeoutRef = useRef<NodeJS.Timeout>()
 
+  // 👇 FIX: Latest state ko track karne ke liye refs 👇
+  const attemptRef = useRef(attempt)
+  const submitRef = useRef(handleSubmit)
+
+  useEffect(() => {
+    attemptRef.current = attempt
+    submitRef.current = handleSubmit
+  }, [attempt, answers, handleSubmit]) // answers bhi track kar rahe hain taaki latest submit ho
+  // 👆 FIX ENDS 👆
+
   /* ─── Lifecycle ─────────────────────────────────────────── */
 
   useEffect(() => {
@@ -60,18 +70,24 @@ export default function QuizAttempt() {
         const newCount = warningCountRef.current
         setWarningCount(newCount)
 
-        // Persist warning count to database
-        supabase
-          .from('quiz_attempts')
-          .update({ warning_count: newCount })
-          .eq('id', attempt?.id ?? '')
-          .then(({ error }) => {
-            if (error) console.error('Failed to update warning count:', error)
-          })
+        // FIX: attemptRef.current se latest ID nikal rahe hain
+        const currentAttemptId = attemptRef.current?.id
+
+        if (currentAttemptId) {
+          // Persist warning count to database
+          supabase
+            .from('quiz_attempts')
+            .update({ warning_count: newCount })
+            .eq('id', currentAttemptId)
+            .then(({ error }) => {
+              if (error) console.error('Failed to update warning count:', error)
+            })
+        }
 
         if (newCount >= 3) {
           toast.error('Quiz auto-submitted due to tab switching.')
-          handleAutoSubmit()
+          // FIX: Latest submit function ko call kar rahe hain
+          submitRef.current(true) 
         } else {
           toast.warning(
             `Warning ${newCount}/3: Do not switch tabs. Your quiz will be auto-submitted.`,
@@ -192,11 +208,14 @@ export default function QuizAttempt() {
 
   const handleAutoSubmit = async () => {
     toast.info('Time is up! Auto-submitting...')
-    await handleSubmit(true)
+    await submitRef.current(true)
   }
 
-  const handleSubmit = async (isAuto = false) => {
-    if (!attempt || !quiz) return
+  // Yahan dhyan dein ki maine isko thoda upar shift kiya hai logically lekin functional wahi hai
+  async function handleSubmit(isAuto = false) {
+    // FIX: Normal state call ki jagah ref ka data use karein agar null ho
+    const currentAttempt = attemptRef.current
+    if (!currentAttempt || !quiz) return
     if (!isAuto) {
       const confirmed = confirm('Are you sure you want to submit? You cannot change answers after submission.')
       if (!confirmed) return
@@ -221,7 +240,7 @@ export default function QuizAttempt() {
         score: totalScore,
         is_evaluated: !questions.some(q => q.question_type === 'paragraph'),
       })
-      .eq('id', attempt.id)
+      .eq('id', currentAttempt.id)
 
     if (error) {
       console.error('Submit error:', error)
