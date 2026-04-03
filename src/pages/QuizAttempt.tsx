@@ -41,7 +41,8 @@ export default function QuizAttempt() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [warningCount, setWarningCount] = useState(0)
+  const warningCountRef = useRef(0)
 
   // Off-canvas stats panel state (mobile)
   const [statsOpen, setStatsOpen] = useState(false)
@@ -54,14 +55,29 @@ export default function QuizAttempt() {
     initializeAttempt()
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setTabSwitchCount(prev => {
-          const n = prev + 1
-          if (n === 1) toast.warning('Warning: Please stay on this tab during the quiz')
-          else if (n === 3) toast.error('Multiple tab switches detected.')
-          else if (n >= 5) toast.error('Excessive tab switching detected!')
-          return n
-        })
+      if (document.visibilityState === 'hidden') {
+        warningCountRef.current += 1
+        const newCount = warningCountRef.current
+        setWarningCount(newCount)
+
+        // Persist warning count to database
+        supabase
+          .from('quiz_attempts')
+          .update({ warning_count: newCount })
+          .eq('id', attempt?.id ?? '')
+          .then(({ error }) => {
+            if (error) console.error('Failed to update warning count:', error)
+          })
+
+        if (newCount >= 3) {
+          toast.error('Quiz auto-submitted due to tab switching.')
+          handleAutoSubmit()
+        } else {
+          toast.warning(
+            `Warning ${newCount}/3: Do not switch tabs. Your quiz will be auto-submitted.`,
+            { duration: 5000 }
+          )
+        }
       }
     }
 
@@ -404,13 +420,40 @@ export default function QuizAttempt() {
       </div>
 
       {/* Tab switch warning */}
-      {tabSwitchCount > 0 && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+      {warningCount > 0 && (
+        <div className={`mt-4 p-3 rounded-xl border ${
+          warningCount >= 2
+            ? 'bg-red-100 border-red-300'
+            : 'bg-amber-50 border-amber-200'
+        }`}>
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+              warningCount >= 2 ? 'text-red-600' : 'text-amber-500'
+            }`} />
             <div className="text-xs">
-              <p className="font-semibold text-red-800">Tab Switches: {tabSwitchCount}</p>
-              <p className="text-red-600 mt-0.5">Stay focused on the quiz</p>
+              <p className={`font-bold ${
+                warningCount >= 2 ? 'text-red-800' : 'text-amber-800'
+              }`}>
+                Strike {warningCount}/3 — Anti-Cheat Active
+              </p>
+              <p className={`mt-0.5 ${
+                warningCount >= 2 ? 'text-red-700' : 'text-amber-700'
+              }`}>
+                {warningCount >= 2
+                  ? 'Next tab switch will auto-submit!'
+                  : 'Do not switch tabs during the quiz.'}
+              </p>
+              {/* Strike indicators */}
+              <div className="flex gap-1 mt-2">
+                {[1, 2, 3].map(i => (
+                  <span
+                    key={i}
+                    className={`w-5 h-2 rounded-full ${
+                      i <= warningCount ? 'bg-red-500' : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
