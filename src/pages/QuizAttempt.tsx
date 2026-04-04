@@ -627,10 +627,7 @@ export default function QuizAttempt() {
             </div>
           </Card>
 
-          <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Answers auto-saved every 500ms</span>
-          </div>
+          
         </main>
 
         {/* ── Right: Stats Sidebar (desktop only, 25%) ── */}
