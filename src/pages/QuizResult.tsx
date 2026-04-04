@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Award, Clock, CheckCircle, XCircle, AlertCircle, Trophy } from 'lucide-react'
+import QuizLeaderboard from '@/components/features/QuizLeaderboard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -339,6 +340,11 @@ export default function QuizResult() {
               <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Leaderboard */}
+        {quizId && (
+          <QuizLeaderboard quizId={quizId} totalMarks={quiz.total_marks} />
         )}
       </main>
     </div>
