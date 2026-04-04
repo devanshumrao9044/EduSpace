@@ -171,12 +171,8 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
-
-              <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-sm text-blue-900">
-                  <strong>Note:</strong> Access level is determined by your role in the database, not your email address.
-                </p>
-              </div>
+              
+        
             </CardContent>
             <CardFooter className="flex flex-col space-y-4 border-t pt-6">
               <p className="text-sm text-center text-muted-foreground">
