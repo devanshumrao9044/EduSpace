@@ -10,7 +10,8 @@ import {
   Shield,
   LogOut,
   ChevronRight,
-  User
+  User,
+  History
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { authService, type User } from '@/lib/auth'
@@ -140,9 +141,9 @@ export default function Sidebar({ user }: SidebarProps) {
                   path="/dashboard"
                 />
                 <NavItem
-                  icon={FileText}
-                  label="My Attempts"
-                  path="/dashboard"
+                  icon={History}
+                  label="Quiz History"
+                  path="/history"
                 />
               </div>
             </div>

@@ -15,6 +15,7 @@ import QuizResult from '@/pages/QuizResult'
 import NotFound from '@/pages/NotFound'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import EditQuiz from '@/pages/admin/EditQuiz'
+import StudentHistory from '@/pages/StudentHistory'
 
 function App() {
   return (
@@ -62,6 +63,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <QuizResult />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <StudentHistory />
             </ProtectedRoute>
           }
         />
