@@ -43,17 +43,11 @@ export default function ManageQuestions() {
 
   /* ─── CSV SANITIZER (Mobile Notes Fixer) ─── */
   const sanitizeAndParse = (rawText: string) => {
-    // 1. Remove wrapping quotes from each line and join them (Fixes broken headers/lines)
     let clean = rawText.split('\n')
       .map(line => line.trim().replace(/^"|"$/g, ''))
       .join('');
-    
-    // 2. Unescape double quotes ("" -> ")
     clean = clean.replace(/""/g, '"');
-
-    // 3. Put newlines back between rows (After marks and before next question)
     const formatted = clean.replace(/(\d)"/g, '$1\n"');
-    
     return formatted;
   }
 
@@ -66,7 +60,7 @@ export default function ManageQuestions() {
     reader.onload = async (event) => {
       try {
         const rawText = event.target?.result as string
-        const fixedCSV = sanitizeAndParse(rawText);
+        const fixedCSV = sanitizeAndParse(rawText)
 
         Papa.parse(fixedCSV, {
           header: true,
@@ -75,7 +69,7 @@ export default function ManageQuestions() {
             const csvQuestions: QuestionInsert[] = results.data
               .filter((row: any) => row.question_text || row.question)
               .map((row: any, index: number) => {
-                const type = (row.question_type || row.type || 'mcq').toLowerCase();
+                const type = (row.question_type || row.type || 'mcq').toLowerCase()
                 return {
                   quiz_id: quizId!,
                   question_text: row.question_text || row.question || '',
@@ -92,7 +86,7 @@ export default function ManageQuestions() {
                 }
               })
 
-            if (csvQuestions.length === 0) throw new Error("No questions found. Check format.")
+            if (csvQuestions.length === 0) throw new Error('No questions found. Check format.')
 
             const { error } = await supabase.from('questions').insert(csvQuestions)
             if (error) throw error
@@ -100,7 +94,7 @@ export default function ManageQuestions() {
             toast.success(`${csvQuestions.length} questions uploaded!`)
             loadQuestions()
           },
-          error: () => toast.error("Parsing failed")
+          error: () => toast.error('Parsing failed')
         })
       } catch (err: any) {
         toast.error(err.message || 'Upload failed')
@@ -114,7 +108,7 @@ export default function ManageQuestions() {
 
   /* ─── Manual Actions ─── */
   const handleAddQuestion = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     const newQ: QuestionInsert = {
       quiz_id: quizId!, question_text: formData.question_text, question_type: questionType,
       correct_answer: formData.correct_answer, marks: formData.marks, order_number: questions.length + 1,
@@ -138,7 +132,7 @@ export default function ManageQuestions() {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <Button variant="ghost" onClick={() => navigate('/admin/quizzes')}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
-        
+
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {/* CSV Card */}
@@ -161,17 +155,26 @@ export default function ManageQuestions() {
             <Card>
               <CardHeader><CardTitle>Manual Add</CardTitle></CardHeader>
               <CardContent>
+                <Tabs value={questionType} onValueChange={(v) => setQuestionType(v as any)}>
+                  <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="mcq">MCQ</TabsTrigger>
+                    <TabsTrigger value="integer">Integer</TabsTrigger>
+                    <TabsTrigger value="paragraph">Paragraph</TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 <form onSubmit={handleAddQuestion} className="space-y-4">
                   <Textarea placeholder="Question Text" value={formData.question_text} onChange={e => setFormData({...formData, question_text: e.target.value})} required/>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})}/>
-                    <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})}/>
-                    <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})}/>
-                    <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})}/>
-                  </div>
+                  {questionType === 'mcq' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})}/>
+                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})}/>
+                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})}/>
+                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})}/>
+                    </div>
+                  )}
                   <Input placeholder="Correct Answer" value={formData.correct_answer} onChange={e => setFormData({...formData, correct_answer: e.target.value})}/>
                   <Input type="number" placeholder="Marks" value={formData.marks} onChange={e => setFormData({...formData, marks: parseInt(e.target.value)})}/>
-                  <Button type="submit" className="w-full">Add Question</Button>
+                  <Button type="submit" className="w-full"><Plus className="mr-2 h-4 w-4"/> Add Question</Button>
                 </form>
               </CardContent>
             </Card>
@@ -191,129 +194,6 @@ export default function ManageQuestions() {
           </Card>
         </div>
       </div>
-    </div>
-  )
-}
-            const { error } = await supabase.from('questions').insert(csvQuestions)
-            if (error) throw error
-
-            toast.success(`${csvQuestions.length} questions added!`)
-            loadQuestions()
-          } catch (err: any) {
-            toast.error(err.message || 'Upload failed')
-          } finally {
-            setIsUploading(false)
-            e.target.value = ''
-          }
-        }
-      })
-    }
-    reader.readAsText(file)
-  }
-
-  /* ─── MANUAL ADD LOGIC ─── */
-  const handleAddQuestion = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const newQuestion: QuestionInsert = {
-        quiz_id: quizId!,
-        question_text: formData.question_text,
-        question_type: questionType,
-        correct_answer: formData.correct_answer,
-        marks: formData.marks,
-        order_number: questions.length + 1,
-        options: questionType === 'mcq' ? {
-          A: formData.optionA, B: formData.optionB, C: formData.optionC, D: formData.optionD
-        } : null
-      }
-      const { error } = await supabase.from('questions').insert(newQuestion)
-      if (error) throw error
-      toast.success('Question added')
-      setFormData({ question_text: '', optionA: '', optionB: '', optionC: '', optionD: '', correct_answer: '', marks: 1 })
-      loadQuestions()
-    } catch (err) { toast.error('Failed to add') }
-  }
-
-  const handleDeleteQuestion = async (id: string) => {
-    if (!confirm('Delete this question?')) return
-    await supabase.from('questions').delete().eq('id', id)
-    loadQuestions()
-  }
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b p-4">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin/quizzes')}><ArrowLeft className="w-4 h-4 mr-2"/> Back</Button>
-          <h1 className="text-xl font-bold truncate">{quiz?.title}</h1>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto p-4 sm:p-8 grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Manual Form */}
-          <Card>
-            <CardHeader><CardTitle>Add Question Manually</CardTitle></CardHeader>
-            <CardContent>
-              <Tabs value={questionType} onValueChange={(v) => setQuestionType(v as any)}>
-                <TabsList className="grid w-full grid-cols-3 mb-6">
-                  <TabsTrigger value="mcq">MCQ</TabsTrigger>
-                  <TabsTrigger value="integer">Integer</TabsTrigger>
-                  <TabsTrigger value="paragraph">Paragraph</TabsTrigger>
-                </TabsList>
-                <form onSubmit={handleAddQuestion} className="space-y-4">
-                  <Textarea placeholder="Question Text" value={formData.question_text} onChange={e => setFormData({...formData, question_text: e.target.value})} required/>
-                  {questionType === 'mcq' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})}/>
-                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})}/>
-                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})}/>
-                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})}/>
-                    </div>
-                  )}
-                  <Input placeholder="Correct Answer" value={formData.correct_answer} onChange={e => setFormData({...formData, correct_answer: e.target.value})}/>
-                  <Input type="number" value={formData.marks} onChange={e => setFormData({...formData, marks: parseInt(e.target.value)})}/>
-                  <Button type="submit" className="w-full">Add Question</Button>
-                </form>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          {/* Bulk Upload Section */}
-          <Card className="border-dashed border-2 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5"/> Bulk Upload CSV</CardTitle>
-              <CardDescription>Lines sticky? No problem. Our system will fix it.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center py-6">
-              <input type="file" id="csv-file" accept=".csv" className="hidden" onChange={handleCSVUpload} disabled={isUploading}/>
-              <Label htmlFor="csv-file">
-                <Button variant="default" asChild disabled={isUploading}>
-                  <span>{isUploading ? <Loader2 className="animate-spin mr-2"/> : <Upload className="mr-2"/>} Select CSV File</span>
-                </Button>
-              </Label>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Questions List Sidebar */}
-        <Card className="h-fit">
-          <CardHeader><CardTitle>Questions ({questions.length})</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            {questions.map((q, i) => (
-              <div key={q.id} className="p-3 border rounded-lg flex justify-between items-start group">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-primary uppercase">Q{i+1} • {q.marks}M</p>
-                  <p className="text-sm truncate font-medium">{q.question_text}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => handleDeleteQuestion(q.id)}><Trash2 className="w-4 h-4 text-red-500"/></Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </main>
     </div>
   )
 }
