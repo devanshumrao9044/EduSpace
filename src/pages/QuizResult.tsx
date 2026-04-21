@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Award, Clock, CheckCircle, XCircle, AlertCircle, Trophy } from 'lucide-react'
+import { ArrowLeft, Award, Clock, CheckCircle, XCircle, AlertCircle, Trophy, TrendingUp, History } from 'lucide-react'
 import QuizLeaderboard from '@/components/features/QuizLeaderboard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,7 +21,7 @@ export default function QuizResult() {
   const navigate = useNavigate()
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [attempt, setAttempt] = useState<QuizAttempt | null>(null)
+  const [attempt, setAttempt] = useState<any>(null) // Rank data ke liye 'any' rakha hai
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,351 +31,165 @@ export default function QuizResult() {
   const loadResult = async () => {
     try {
       const user = await authService.getCurrentUser()
-      if (!user) {
-        navigate('/login')
-        return
-      }
+      if (!user) { navigate('/login'); return; }
 
-      if (!quizId || quizId === 'undefined') {
-        toast.error('Quiz ID is missing in URL!')
-        navigate('/dashboard')
-        return
-      }
+      // 1. Fetch Quiz Data
+      const { data: quizData } = await supabase.from('quizzes').select('*').eq('id', quizId).single()
+      if (!quizData) throw new Error('Quiz not found')
 
-      // 1. Fetch Quiz (With Detective Logging)
-      const { data: quizData, error: quizError } = await supabase
-        .from('quizzes')
-        .select('*')
-        .eq('id', quizId)
-        .limit(1)
-        .maybeSingle()
-
-      // 👇 YAHAN JASOOS LOGIC LAGA HAI 👇
-      if (quizError || !quizData) {
-        console.error("Full Quiz Error:", quizError)
-        // Ye toast aapko screen par batayega ki ID kya aayi hai
-        toast.error(`Failed to load Quiz ID: ${quizId}`) 
-        setLoading(false)
-        return
-      }
-      // 👆 JASOOS LOGIC KHATAM 👆
-
-      // 2. Fetch Attempt
-      const { data: attemptData, error: attemptError } = await supabase
+      // 2. Fetch User Attempt with Ranking (Custom Logic)
+      // Note: Yahan hum wahi Ranking System wala view use karenge jo Admin ke liye banaya tha
+      const { data: attemptData } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quizId)
         .eq('student_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('submitted_at', { ascending: false })
         .limit(1)
-        .maybeSingle()
+        .single()
 
-      if (attemptError) {
-        console.warn('Attempt warning:', attemptError.message)
-      }
-
-      // 3. Fetch Questions
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('*')
+      // 3. Expected/Official Rank Calculation
+      // Ye hum frontend par isliye kar rahe hain taaki bacha LIVE bacchon ke beech apni aukat dekh sake
+      const { count: liveCountAbove } = await supabase
+        .from('quiz_attempts')
+        .select('*', { count: 'exact', head: true })
         .eq('quiz_id', quizId)
-        .order('order_number')
+        .lte('submitted_at', quizData.end_time) // Sirf live attempts
+        .gt('score', attemptData.score)
+
+      const isLive = new Date(attemptData.submitted_at) <= new Date(quizData.end_time)
+
+      // 4. Fetch Questions
+      const { data: questionsData } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number')
 
       setQuiz(quizData)
-      setAttempt(attemptData)
+      setAttempt({ ...attemptData, isLive, calculatedRank: liveCountAbove + 1 })
       setQuestions(questionsData || [])
 
     } catch (error: any) {
-      console.error('Error loading result:', error)
-      toast.error('Something went wrong!')
+      console.error('Error:', error)
+      toast.error('Result load hone mein dikkat hai')
     } finally {
       setLoading(false)
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const calculateTimeTaken = () => {
-    if (!attempt) return '0 minutes'
-    const start = new Date(attempt.started_at).getTime()
-    const end = new Date(attempt.submitted_at || Date.now()).getTime()
-    const minutes = Math.floor((end - start) / 60000)
-    const seconds = Math.floor(((end - start) % 60000) / 1000)
-    return `${minutes}m ${seconds}s`
-  }
-
-  const getAnswerStatus = (question: Question, userAnswer: string) => {
-    if (!userAnswer) return { status: 'skipped', color: 'text-gray-500' }
-
-    if (question.question_type === 'paragraph') {
-      return { status: 'pending', color: 'text-yellow-600' }
-    }
-
-    const correct = question.question_type === 'mcq'
-      ? userAnswer.toUpperCase() === question.correct_answer.toUpperCase()
-      : userAnswer === question.correct_answer
-
-    return {
-      status: correct ? 'correct' : 'wrong',
-      color: correct ? 'text-green-600' : 'text-red-600'
-    }
-  }
-
   const calculateStats = () => {
-    if (!attempt || !questions.length) return { correct: 0, wrong: 0, skipped: 0, attempted: 0, accuracy: 0 }
-
+    if (!attempt || !questions.length) return { correct: 0, wrong: 0, skipped: 0, accuracy: 0 }
     const answers = attempt.answers as Record<string, Answer>
-    let correct = 0
-    let wrong = 0
-    let skipped = 0
-
-    questions.forEach(question => {
-      const userAnswer = answers[question.id]?.answer
-
-      if (!userAnswer) {
-        skipped++
-        return
-      }
-
-      if (question.question_type !== 'paragraph') {
-        const isCorrect = question.question_type === 'mcq'
-          ? userAnswer.toUpperCase() === question.correct_answer.toUpperCase()
-          : userAnswer === question.correct_answer
-
-        if (isCorrect) correct++
-        else wrong++
-      }
+    let correct = 0, wrong = 0, skipped = 0
+    questions.forEach(q => {
+      const uAns = answers[q.id]?.answer
+      if (!uAns) skipped++
+      else if (uAns.toUpperCase() === q.correct_answer.toUpperCase()) correct++
+      else wrong++
     })
-
     const attempted = questions.length - skipped
     const accuracy = attempted > 0 ? (correct / attempted) * 100 : 0
-
-    return { correct, wrong, skipped, attempted, accuracy }
+    return { correct, wrong, skipped, accuracy }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading results...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!quiz || !attempt) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="font-semibold text-lg mb-2">Result not found</h3>
-          <p className="text-muted-foreground text-sm mb-4">Could not find your attempt for this quiz.</p>
-          <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
-        </Card>
-      </div>
-    )
-  }
+  if (loading) return <div className="h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>
 
   const stats = calculateStats()
-  const passed = attempt.score !== null && attempt.score >= quiz.passing_marks
-  const showDetailedResults = quiz.show_results_immediately === true
+  const passed = attempt?.score >= (quiz?.passing_marks || 0)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/history')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to History
-          </Button>
-        </div>
+    <div className="min-h-screen bg-gray-50 pb-12">
+      <header className="bg-white border-b py-4 px-6 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/history')}><ArrowLeft/></Button>
+        <h1 className="font-bold text-lg">Analysis & Results</h1>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <Card className={`${passed ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'} text-white`}>
-          <CardContent className="p-8 text-center">
-            {showDetailedResults ? (
-              <>
-                <Trophy className="w-16 h-16 mx-auto mb-4 opacity-90" />
-                <h1 className="text-3xl font-bold mb-2">
-                  {passed ? 'Congratulations! 🎉' : 'Quiz Completed'}
-                </h1>
-                <p className="text-lg opacity-90">
-                  {passed ? "You've passed the quiz!" : 'Keep practicing to improve'}
+      <main className="max-w-4xl mx-auto p-4 sm:p-8 space-y-6">
+        
+        {/* 🔥 PW STYLE RANK CARD 🔥 */}
+        <Card className={`overflow-hidden border-none text-white shadow-xl ${attempt.isLive ? 'bg-gradient-to-br from-green-600 to-emerald-800' : 'bg-gradient-to-br from-blue-600 to-indigo-800'}`}>
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="text-center md:text-left space-y-2">
+                <Badge className="bg-white/20 text-white border-none mb-2">
+                  {attempt.isLive ? 'OFFICIAL RESULT' : 'PRACTICE MODE'}
+                </Badge>
+                <h2 className="text-4xl font-black">
+                  {attempt.isLive ? 'Rank #' : 'Expected Rank #'}{attempt.calculatedRank}
+                </h2>
+                <p className="opacity-80 text-sm">
+                  {attempt.isLive 
+                    ? "Your position in the live official leaderboard." 
+                    : "Your calculated position among live test takers."}
                 </p>
-              </>
-            ) : (
-              <>
-                <Clock className="w-16 h-16 mx-auto mb-4 opacity-90" />
-                <h1 className="text-3xl font-bold mb-2">Quiz Submitted Successfully</h1>
-                <p className="text-lg opacity-90">Your responses are under evaluation</p>
-              </>
-            )}
+              </div>
+              
+              <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md border border-white/20 text-center min-w-[180px]">
+                <p className="text-xs uppercase tracking-wider opacity-70 mb-1">Score Obtained</p>
+                <div className="text-5xl font-black">{attempt.score}</div>
+                <p className="text-sm opacity-70 mt-1">out of {quiz?.total_marks}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Stats Section */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard icon={<CheckCircle className="text-green-500"/>} label="Correct" value={stats.correct} bgColor="bg-green-50" />
+          <StatCard icon={<XCircle className="text-red-500"/>} label="Wrong" value={stats.wrong} bgColor="bg-red-50" />
+          <StatCard icon={<AlertCircle className="text-orange-500"/>} label="Skipped" value={stats.skipped} bgColor="bg-orange-50" />
+          <StatCard icon={<TrendingUp className="text-blue-500"/>} label="Accuracy" value={`${stats.accuracy.toFixed(1)}%`} bgColor="bg-blue-50" />
+        </div>
+
+        {/* Question Review */}
         <Card>
-          <CardHeader>
-            <CardTitle>{quiz.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Submitted At:</span>
-              <span className="font-medium">{formatDate(attempt.submitted_at!)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Time Taken:</span>
-              <span className="font-medium">{calculateTimeTaken()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge variant={attempt.is_evaluated ? 'default' : 'secondary'}>
-                {attempt.is_evaluated ? 'Evaluated' : 'Pending Evaluation'}
-              </Badge>
-            </div>
+          <CardHeader><CardTitle>Review Answers</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {questions.map((q, i) => {
+               const uAns = (attempt.answers as any)[q.id]?.answer;
+               const isCorrect = uAns?.toUpperCase() === q.correct_answer.toUpperCase();
+               return (
+                 <div key={q.id} className={`p-4 border rounded-xl ${!uAns ? 'bg-gray-50' : isCorrect ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'}`}>
+                   <div className="flex justify-between mb-2">
+                     <span className="text-xs font-bold uppercase text-gray-400">Question {i+1}</span>
+                     <Badge variant="outline">{q.marks} Marks</Badge>
+                   </div>
+                   <p className="font-medium mb-4">{q.question_text}</p>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                     <div className="p-2 rounded bg-white border">
+                        <span className="text-gray-500 mr-2">Your Answer:</span>
+                        <span className={isCorrect ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>{uAns || 'Skipped'}</span>
+                     </div>
+                     <div className="p-2 rounded bg-white border">
+                        <span className="text-gray-500 mr-2">Correct Answer:</span>
+                        <span className="text-green-700 font-bold">{q.correct_answer}</span>
+                     </div>
+                   </div>
+                 </div>
+               )
+            })}
           </CardContent>
         </Card>
 
-        {showDetailedResults && (
-          <>
-            <Card>
-              <CardContent className="p-6">
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="text-center p-6 bg-gray-50 rounded-lg">
-                    <Award className="w-12 h-12 text-primary mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground mb-1">Your Score</p>
-                    <p className="text-4xl font-bold text-foreground">
-                      {attempt.score}/{quiz.total_marks}
-                    </p>
-                    <div className="mt-3 w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full ${passed ? 'bg-green-500' : 'bg-red-500'}`}
-                        style={{ width: `${((attempt.score || 0) / quiz.total_marks) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="text-sm font-medium">Correct</span>
-                      </div>
-                      <span className="font-bold text-green-600">{stats.correct}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <XCircle className="w-5 h-5 text-red-600" />
-                        <span className="text-sm font-medium">Wrong</span>
-                      </div>
-                      <span className="font-bold text-red-600">{stats.wrong}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-gray-600" />
-                        <span className="text-sm font-medium">Skipped</span>
-                      </div>
-                      <span className="font-bold text-gray-600">{stats.skipped}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <span className="text-sm font-medium">Accuracy</span>
-                      <span className="font-bold text-blue-600">{stats.accuracy.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Answer Review</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {questions.map((question, index) => {
-                  const answers = attempt.answers as Record<string, Answer>
-                  const userAnswer = answers[question.id]?.answer
-                  const answerStatus = getAnswerStatus(question, userAnswer)
-
-                  return (
-                    <div key={question.id} className="p-4 border rounded-lg">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="px-2 py-1 bg-gray-100 text-sm font-semibold rounded">
-                              Q{index + 1}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium">{question.question_text}</p>
-                        </div>
-                        <div className={`flex items-center gap-1 ${answerStatus.color}`}>
-                          {answerStatus.status === 'correct' && <CheckCircle className="w-5 h-5" />}
-                          {answerStatus.status === 'wrong' && <XCircle className="w-5 h-5" />}
-                          {answerStatus.status === 'pending' && <AlertCircle className="w-5 h-5" />}
-                          <span className="text-sm font-semibold capitalize">{answerStatus.status}</span>
-                        </div>
-                      </div>
-
-                      {question.question_type !== 'paragraph' && (
-                        <div className="mt-3 space-y-2 text-sm">
-                          <div className="flex gap-2">
-                            <span className="text-muted-foreground">Your Answer:</span>
-                            <span className={`font-medium ${answerStatus.color}`}>
-                              {userAnswer || 'Not Answered'}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <span className="text-muted-foreground">Correct Answer:</span>
-                            <span className="font-medium text-green-600">{question.correct_answer}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {question.question_type === 'paragraph' && userAnswer && (
-                        <div className="mt-3 p-3 bg-gray-50 rounded text-sm">
-                          <p className="text-muted-foreground mb-1">Your Response:</p>
-                          <p className="text-foreground">{userAnswer}</p>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-
-            {quizId && (
-              <QuizLeaderboard quizId={quizId} totalMarks={quiz.total_marks} />
-            )}
-          </>
-        )}
-
-        {!showDetailedResults && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Results Hidden</h3>
-              <p className="text-muted-foreground mb-6">
-                Your quiz has been submitted successfully. The instructor will publish the results later.
-              </p>
-              <Button onClick={() => navigate('/history')}>Back to History</Button>
-            </CardContent>
-          </Card>
-        )}
+        {/* Leaderboard - Isme humne is_live wala logic pehle hi daala hai */}
+        <div className="mt-12">
+          <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Trophy className="text-yellow-500"/> Official Toppers List
+          </h3>
+          <QuizLeaderboard quizId={quizId} currentAttemptId={attempt.id} />
+        </div>
       </main>
     </div>
+  )
+}
+
+function StatCard({ icon, label, value, bgColor }: any) {
+  return (
+    <Card className={`border-none shadow-sm ${bgColor}`}>
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className="p-2 bg-white rounded-lg shadow-sm">{icon}</div>
+        <div>
+          <p className="text-[10px] uppercase font-bold text-gray-500">{label}</p>
+          <p className="text-xl font-black">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
