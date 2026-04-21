@@ -34,22 +34,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/quiz/:quizId"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <QuizDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/quiz/:quizId/attempt"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <QuizAttempt />
-            </ProtectedRoute>
-          }
-        />
+
+        {/* 🔥 FIX: Result aur Review routes ko Detail se upar rakha hai taaki match sahi ho 🔥 */}
         <Route
           path="/quiz/:quizId/result"
           element={
@@ -66,6 +52,25 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/quiz/:quizId/attempt"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizAttempt />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Detail route ab neeche hai taaki ye '/result' ko ID na samajh le */}
+        <Route
+          path="/quiz/:quizId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizDetail />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/history"
           element={
@@ -101,10 +106,48 @@ function App() {
           }
         />
         
-        {/* 👇 NAYA EDIT WALA ROUTE YAHAN HAI 👇 */}
         <Route
           path="/admin/quiz/:id/edit"
           element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <EditQuiz />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/quiz/:quizId/questions"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ManageQuestions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/quiz/:quizId/results"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <QuizResults />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster position="top-right" richColors />
+    </BrowserRouter>
+  )
+}
+
+export default App
             <ProtectedRoute allowedRoles={['admin']}>
               <EditQuiz />
             </ProtectedRoute>
