@@ -50,6 +50,7 @@ export default function QuizDetail() {
     return () => clearInterval(interval)
   }, [quiz])
 
+  // 👇 YAHAN LAGA HAI ASLI LOCK 👇
   const loadQuiz = async () => {
     try {
       const user = await authService.getCurrentUser()
@@ -67,12 +68,18 @@ export default function QuizDetail() {
       if (quizError) throw quizError
       setQuiz(quizData)
 
-      const { data: attemptData } = await supabase
+      // Bulletproof check: Ek hi baar attempt uthayega aur crash bhi nahi hoga
+      const { data: attemptData, error: attemptError } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quizId)
         .eq('student_id', user.id)
-        .single()
+        .limit(1)
+        .maybeSingle()
+
+      if (attemptError) {
+         console.warn("Attempt fetch error:", attemptError.message)
+      }
 
       setAttempt(attemptData)
     } catch (error: any) {
@@ -82,6 +89,7 @@ export default function QuizDetail() {
       setLoading(false)
     }
   }
+  // 👆 LOCK KHATAM 👆
 
   const handleStartQuiz = async () => {
     if (!quiz) return
@@ -317,3 +325,4 @@ export default function QuizDetail() {
     </div>
   )
 }
+
