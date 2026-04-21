@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  Clock, Flag, Send, AlertTriangle, CheckCircle, X,
-  BarChart2, ChevronLeft, ChevronRight,
+  Clock, Flag, Send, AlertTriangle, X, BarChart2,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { supabase } from '@/lib/supabase'
 import { authService } from '@/lib/auth'
-import type { Quiz, Question, QuizAttempt } from '@/types/database'
+import type { Quiz, Question } from '@/types/database'
 
 interface Answer {
   questionId: string
@@ -50,32 +50,29 @@ export default function QuizAttempt() {
         supabase.from('quizzes').select('*').eq('id', quizId).single(),
         supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number'),
       ])
-      
+
       if (quizRes.error) throw quizRes.error
       if (questionsRes.error) throw questionsRes.error
 
       setQuiz(quizRes.data)
       setQuestions(questionsRes.data || [])
 
-      // 🔥 LOCK REMOVED: Yahan hum ab redirect nahi karenge agar purana attempt mile.
-      // Hum humesha naya attempt create karenge.
-      
       const { data: newAttempt, error } = await supabase
         .from('quiz_attempts')
-        .insert({ 
-          quiz_id: quizId!, 
-          student_id: user.id, 
+        .insert({
+          quiz_id: quizId!,
+          student_id: user.id,
           answers: {},
           started_at: new Date().toISOString(),
-          is_evaluated: false // Initially false
+          is_evaluated: false,
         })
-        .select().single()
-      
+        .select()
+        .single()
+
       if (error) throw error
-      
+
       setAttempt(newAttempt)
       setTimeLeft(quizRes.data.duration_minutes * 60)
-
     } catch (error: any) {
       console.error('Error initializing attempt:', error)
       toast.error('Failed to start quiz')
@@ -85,277 +82,10 @@ export default function QuizAttempt() {
     }
   }
 
-  // Answer ko temporary save karne ke liye (Draft)
-  const saveAnswersDraft = async () => {
+  const saveAnswers = async () => {
     if (!attempt || submitting) return
-    await supabase
-      .from('quiz_attempts')
-      .update({ answers })
-      .eq('id', attempt.id)
+    await supabase.from('quiz_attempts').update({ answers }).eq('id', attempt.id)
   }
-
-  /* ─── Handlers ───────────────────────────────────────────── */
-
-  const handleAnswerChange = (questionId: string, answer: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: { questionId, answer, marked: prev[questionId]?.marked || false },
-    }))
-  }
-
-  const handleToggleMarked = (questionId: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: {
-        questionId,
-        answer: prev[questionId]?.answer || '',
-        marked: !prev[questionId]?.marked,
-      },
-    }))
-  }
-
-  const handleSubmit = async (isAuto = false) => {
-    if (!attempt || !quiz) return
-
-    if (!isAuto) {
-      const confirmed = window.confirm('Are you sure you want to submit?')
-      if (!confirmed) return
-    }
-    
-    setSubmitting(true)
-
-    // Calculate score locally
-    let totalScore = 0
-    questions.forEach(q => {
-      const ua = answers[q.id]?.answer?.trim()
-      if (!ua) return
-      
-      const correctAns = q.correct_answer?.trim() || ''
-      const correct = q.question_type === 'mcq'
-        ? ua.toUpperCase() === correctAns.toUpperCase()
-        : ua === correctAns
-      
-      if (correct) totalScore += q.marks
-    })
-
-    // 🔥 FIX: Ab hum final data update kar rahe hain usi specific attempt ID par
-    const { error } = await supabase
-      .from('quiz_attempts')
-      .update({
-        submitted_at: new Date().toISOString(),
-        answers,
-        score: totalScore,
-        is_evaluated: true, // Mark it evaluated for non-paragraph quizzes
-      })
-      .eq('id', attempt.id)
-
-    if (error) {
-      toast.error('Submission failed')
-      setSubmitting(false)
-      return
-    }
-
-    toast.success('Submitted!')
-    navigate(`/quiz/${quizId}/result`)
-  }
-
-  const handleAutoSubmit = async () => {
-    if (!submitting) await handleSubmit(true)
-  }
-
-  /* ─── Anti-Cheat ───────────────────────────────────── */
-
-  useEffect(() => {
-    initializeAttempt()
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && !submitting) {
-        setWarningCount(prev => prev + 1)
-        toast.warning('Warning: Don\'t switch tabs!')
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
-
-  useEffect(() => {
-    if (warningCount >= 3 && !submitting) {
-      handleSubmit(true)
-    }
-  }, [warningCount])
-
-  /* ─── Timer & AutoSave ──────────────────────────────────────── */
-
-  useEffect(() => {
-    if (timeLeft <= 0 || !attempt) return
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) { handleAutoSubmit(); return 0 }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [timeLeft, attempt])
-
-  useEffect(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(saveAnswersDraft, 2000)
-    return () => clearTimeout(saveTimeoutRef.current)
-  }, [answers])
-
-  /* ─── Helpers ────────────────────────────────────────────── */
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60)
-    const s = secs % 60
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
-
-  const getQuestionStatus = (id: string) => {
-    const a = answers[id]
-    if (a?.marked) return 'marked'
-    if (a?.answer) return 'answered'
-    return 'unanswered'
-  }
-
-  const getStatusStyle = (status: string, isCurrent: boolean) => {
-    const ring = isCurrent ? 'ring-2 ring-primary scale-110' : ''
-    if (status === 'answered') return `bg-emerald-500 text-white ${ring}`
-    if (status === 'marked') return `bg-amber-400 text-white ${ring}`
-    return `bg-gray-100 text-gray-600 ${ring}`
-  }
-
-  if (loading) return <div className="h-screen flex items-center justify-center font-bold">Starting Quiz...</div>
-
-  const currentQuestion = questions[currentQuestionIndex]
-  const currentAnswer = answers[currentQuestion.id]
-
-  /* ─── UI Components ────────────────────────────────── */
-
-  const StatsPanelContent = () => (
-    <div className="flex flex-col h-full space-y-6">
-      <div className={`p-6 rounded-2xl text-center text-white ${timeLeft < 60 ? 'bg-red-500 animate-pulse' : 'bg-primary'}`}>
-        <p className="text-[10px] uppercase font-bold opacity-70">Time Remaining</p>
-        <p className="text-4xl font-black">{formatTime(timeLeft)}</p>
-      </div>
-
-      <div className="grid grid-cols-5 gap-2">
-        {questions.map((q, i) => (
-          <button
-            key={q.id}
-            onClick={() => setCurrentQuestionIndex(i)}
-            className={`aspect-square rounded-lg font-bold text-xs transition-all ${getStatusStyle(getQuestionStatus(q.id), i === currentQuestionIndex)}`}
-          >
-            {i + 1}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-2 pt-4 border-t">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Attempted:</span>
-          <span className="font-bold text-emerald-600">{Object.values(answers).filter(a => a.answer).length}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Marked for Review:</span>
-          <span className="font-bold text-amber-500">{Object.values(answers).filter(a => a.marked).length}</span>
-        </div>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-30">
-        <div>
-          <h1 className="font-bold text-slate-800">{quiz?.title}</h1>
-          <p className="text-xs text-slate-400">Question {currentQuestionIndex + 1} of {questions.length}</p>
-        </div>
-        <Button onClick={() => handleSubmit()} disabled={submitting} className="bg-primary hover:bg-primary/90">
-          {submitting ? 'Submitting...' : 'Finish Quiz'}
-        </Button>
-      </header>
-
-      <div className="flex-1 flex max-w-screen-xl mx-auto w-full overflow-hidden">
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
-            <div className="p-6 bg-slate-50 border-b flex justify-between items-center">
-              <Badge className="bg-slate-800">Question {currentQuestionIndex + 1}</Badge>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400">Mark for Review</span>
-                <Switch 
-                  checked={currentAnswer?.marked || false} 
-                  onCheckedChange={() => handleToggleMarked(currentQuestion.id)} 
-                />
-              </div>
-            </div>
-
-            <div className="p-6 lg:p-10 space-y-8">
-              <p className="text-xl font-medium text-slate-800 leading-relaxed">
-                {currentQuestion.question_text}
-              </p>
-
-              {currentQuestion.question_type === 'mcq' && (
-                <RadioGroup value={currentAnswer?.answer || ''} onValueChange={(val) => handleAnswerChange(currentQuestion.id, val)} className="grid gap-3">
-                  {Object.entries(currentQuestion.options as any).map(([key, value]) => (
-                    <div 
-                      key={key} 
-                      onClick={() => handleAnswerChange(currentQuestion.id, key)}
-                      className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${currentAnswer?.answer === key ? 'border-primary bg-primary/5' : 'hover:bg-slate-50 border-slate-100'}`}
-                    >
-                      <RadioGroupItem value={key} id={key} />
-                      <Label htmlFor={key} className="flex-1 font-medium cursor-pointer">{key}. {value as string}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-
-              {currentQuestion.question_type === 'integer' && (
-                <Input 
-                  type="number" 
-                  placeholder="Enter your numeric answer..." 
-                  className="h-14 text-lg"
-                  value={currentAnswer?.answer || ''}
-                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                />
-              )}
-
-              {currentQuestion.question_type === 'paragraph' && (
-                <Textarea 
-                  placeholder="Type your detailed answer here..." 
-                  className="min-h-[200px] text-lg"
-                  value={currentAnswer?.answer || ''}
-                  onChange={(e) => handleAnswerChange(currentQuestion.id, e.target.value)}
-                />
-              )}
-            </div>
-
-            <div className="p-6 bg-slate-50 border-t flex justify-between">
-              <Button 
-                variant="outline" 
-                disabled={currentQuestionIndex === 0} 
-                onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-              >
-                <ChevronLeft className="mr-2 h-4 w-4" /> Previous
-              </Button>
-              <Button 
-                disabled={currentQuestionIndex === questions.length - 1} 
-                onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-              >
-                Next <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
-        </main>
-
-        <aside className="hidden lg:flex w-80 bg-white border-l p-6 flex-col">
-          <StatsPanelContent />
-        </aside>
-      </div>
-    </div>
-  )
-}
 
   /* ─── Handlers ───────────────────────────────────────────── */
 
@@ -415,7 +145,7 @@ export default function QuizAttempt() {
     }
 
     toast.success(isAuto ? 'Quiz auto-submitted successfully!' : 'Quiz submitted successfully!')
-    window.location.href = `/quiz/${quizId}/result`
+    navigate(`/quiz/${quizId}/result`)
   }
 
   const handleAutoSubmit = async () => {
@@ -454,7 +184,7 @@ export default function QuizAttempt() {
     }
   }, [warningCount])
 
-  /* ─── Other Effects ──────────────────────────────────────── */
+  /* ─── Timer & AutoSave ──────────────────────────────────────── */
 
   useEffect(() => {
     if (timeLeft <= 0 || !attempt || attempt.submitted_at) return
@@ -552,7 +282,6 @@ export default function QuizAttempt() {
 
   const StatsPanelContent = () => (
     <div className="flex flex-col h-full">
-      {/* Timer */}
       <div className={`rounded-2xl p-5 mb-5 text-center transition-colors duration-500 ${
         criticalTime ? 'bg-red-600 text-white' : urgentTime ? 'bg-amber-500 text-white' : 'bg-primary text-white'
       }`}>
@@ -568,7 +297,6 @@ export default function QuizAttempt() {
         )}
       </div>
 
-      {/* Progress bar */}
       <div className="mb-5">
         <div className="flex justify-between text-xs text-muted-foreground mb-1.5 font-medium">
           <span>Progress</span>
@@ -582,7 +310,6 @@ export default function QuizAttempt() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
           <p className="text-2xl font-bold text-emerald-600">{attempted}</p>
@@ -602,7 +329,6 @@ export default function QuizAttempt() {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="mb-4">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Legend</p>
         <div className="space-y-1.5 text-sm">
@@ -621,7 +347,6 @@ export default function QuizAttempt() {
         </div>
       </div>
 
-      {/* Question Grid */}
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Questions</p>
       <div className="grid grid-cols-5 gap-1.5 flex-1 content-start">
         {questions.map((q, i) => {
@@ -643,7 +368,6 @@ export default function QuizAttempt() {
         })}
       </div>
 
-      {/* Tab switch warning */}
       {warningCount > 0 && (
         <div className={`mt-4 p-3 rounded-xl border ${
           warningCount >= 2 ? 'bg-red-100 border-red-300' : 'bg-amber-50 border-amber-200'
@@ -681,7 +405,6 @@ export default function QuizAttempt() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
 
-      {/* ── Top Header ── */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-30">
         <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
@@ -691,7 +414,6 @@ export default function QuizAttempt() {
             </p>
           </div>
 
-          {/* Desktop timer */}
           <div className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl font-mono font-bold text-lg transition-colors duration-300 ${
             criticalTime ? 'bg-red-100 text-red-700 animate-pulse' : urgentTime ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-700'
           }`}>
@@ -699,7 +421,6 @@ export default function QuizAttempt() {
             {formatTime(timeLeft)}
           </div>
 
-          {/* Mobile timer */}
           <div className={`flex lg:hidden items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono font-bold text-sm transition-colors duration-300 ${
             criticalTime ? 'bg-red-100 text-red-700 animate-pulse' : urgentTime ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-700'
           }`}>
@@ -720,14 +441,11 @@ export default function QuizAttempt() {
         </div>
       </header>
 
-      {/* ── Main Body ── */}
       <div className="flex-1 flex max-w-screen-xl mx-auto w-full">
 
-        {/* ── Left: Question Area (75%) ── */}
         <main className="flex-1 min-w-0 p-4 lg:p-6 overflow-y-auto">
           <Card className="shadow-sm border-0 ring-1 ring-gray-200">
 
-            {/* Question header */}
             <div className="p-5 lg:p-6 border-b bg-gradient-to-r from-slate-50 to-white rounded-t-xl">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -760,7 +478,6 @@ export default function QuizAttempt() {
               </div>
             </div>
 
-            {/* Answer area */}
             <div className="p-5 lg:p-6">
               {currentQuestion.question_type === 'mcq' && currentQuestion.options && (
                 <RadioGroup
@@ -791,7 +508,7 @@ export default function QuizAttempt() {
                           }`}>
                             {key}
                           </span>
-                          {value}
+                          {value as string}
                         </Label>
                       </div>
                     ) : null
@@ -828,7 +545,6 @@ export default function QuizAttempt() {
               )}
             </div>
 
-            {/* Navigation footer */}
             <div className="px-5 lg:px-6 pb-5 lg:pb-6 flex items-center justify-between gap-3 pt-2 border-t">
               <Button
                 variant="outline"
@@ -877,17 +593,13 @@ export default function QuizAttempt() {
               </Button>
             </div>
           </Card>
-
-          
         </main>
 
-        {/* ── Right: Stats Sidebar (desktop only, 25%) ── */}
         <aside className="hidden lg:flex flex-col w-80 xl:w-96 border-l bg-white p-5 overflow-y-auto shrink-0">
           <StatsPanelContent />
         </aside>
       </div>
 
-      {/* ── Mobile: Floating "View Stats" button ── */}
       <button
         onClick={() => setStatsOpen(true)}
         className="
@@ -910,7 +622,6 @@ export default function QuizAttempt() {
         )}
       </button>
 
-      {/* ── Mobile Off-Canvas Stats Drawer ── */}
       <div
         className={`
           fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden
