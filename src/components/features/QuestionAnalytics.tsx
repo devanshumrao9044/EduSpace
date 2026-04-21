@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { BarChart3, CheckCircle, XCircle, MinusCircle, Flame, TrendingUp, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
-import type { Question, QuizAttempt } from '@/types/database'
+import type { Question } from '@/types/database'
 
 interface QuestionAnalyticsProps {
   quizId: string
@@ -45,8 +45,8 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
 
       const totalStudents = attemptsData.length
 
-      // 3. Calculate stats for each question
-      const calculatedStats = questionsData.map((question, index) => {
+      // 3. Calculate stats for each question (preserve original order number)
+      const calculatedStats: QuestionStats[] = questionsData.map((question, index) => {
         let correctCount = 0
         let wrongCount = 0
         let skippedCount = 0
@@ -58,29 +58,31 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
           if (!studentAnswer) {
             skippedCount++
           } else {
-            const isCorrect = question.question_type === 'mcq'
-              ? studentAnswer.toUpperCase() === question.correct_answer.toUpperCase()
-              : studentAnswer === question.correct_answer
+            const isCorrect =
+              question.question_type === 'mcq'
+                ? studentAnswer.toUpperCase() === question.correct_answer.toUpperCase()
+                : studentAnswer === question.correct_answer
 
             if (isCorrect) correctCount++
             else wrongCount++
           }
         })
 
-        const correctPercentage = totalStudents > 0 ? Math.round((correctCount / totalStudents) * 100) : 0
+        const correctPercentage =
+          totalStudents > 0 ? Math.round((correctCount / totalStudents) * 100) : 0
 
         return {
           ...question,
-          originalQNum: index + 1, // Asli question number yaad rakho
+          originalQNum: index + 1,
           correctCount,
           wrongCount,
           skippedCount,
           totalAttempts: totalStudents,
-          correctPercentage
+          correctPercentage,
         }
       })
 
-      // 4. SORTING: Sabse kam correct percentage wala (sabse hard) sabse upar aayega
+      // 4. Sort: hardest (lowest correct %) first
       calculatedStats.sort((a, b) => a.correctPercentage - b.correctPercentage)
 
       setStats(calculatedStats)
@@ -92,24 +94,24 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
   }
 
   if (loading) {
-    return <div className="animate-pulse h-32 bg-gray-100 rounded-lg w-full mt-6"></div>
+    return <div className="animate-pulse h-32 bg-gray-100 rounded-lg w-full mt-6" />
   }
 
   if (stats.length === 0 || stats[0].totalAttempts === 0) {
     return null
   }
 
-  // 5. GROUPING: Questions ko unke level ke hisaab se baantna
-  const hardQuestions = stats.filter(s => s.correctPercentage < 40)
-  const moderateQuestions = stats.filter(s => s.correctPercentage >= 40 && s.correctPercentage <= 75)
-  const easyQuestions = stats.filter(s => s.correctPercentage > 75)
+  // 5. Group questions by difficulty
+  const hardQuestions = stats.filter((s) => s.correctPercentage < 40)
+  const moderateQuestions = stats.filter(
+    (s) => s.correctPercentage >= 40 && s.correctPercentage <= 75
+  )
+  const easyQuestions = stats.filter((s) => s.correctPercentage > 75)
 
-  // Helper function to render a question row
   const renderQuestionRow = (stat: QuestionStats) => (
     <div key={stat.id} className="p-6 hover:bg-slate-50 transition-colors border-b last:border-b-0 bg-white">
       <div className="flex flex-col md:flex-row gap-6">
-        
-        {/* Left Side: Question Info */}
+        {/* Left: Question Info */}
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2 py-1 bg-gray-800 text-white text-xs font-bold rounded">
@@ -120,16 +122,28 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
             </span>
           </div>
           <p className="font-medium text-gray-800 text-sm mb-4">{stat.question_text}</p>
-          
+
           {/* Progress Bar */}
           <div className="flex w-full h-3 rounded-full overflow-hidden bg-gray-100">
-            <div style={{ width: `${(stat.correctCount / stat.totalAttempts) * 100}%` }} className="bg-green-500" title="Correct" />
-            <div style={{ width: `${(stat.wrongCount / stat.totalAttempts) * 100}%` }} className="bg-red-500" title="Wrong" />
-            <div style={{ width: `${(stat.skippedCount / stat.totalAttempts) * 100}%` }} className="bg-gray-300" title="Skipped" />
+            <div
+              style={{ width: `${(stat.correctCount / stat.totalAttempts) * 100}%` }}
+              className="bg-green-500"
+              title="Correct"
+            />
+            <div
+              style={{ width: `${(stat.wrongCount / stat.totalAttempts) * 100}%` }}
+              className="bg-red-500"
+              title="Wrong"
+            />
+            <div
+              style={{ width: `${(stat.skippedCount / stat.totalAttempts) * 100}%` }}
+              className="bg-gray-300"
+              title="Skipped"
+            />
           </div>
         </div>
 
-        {/* Right Side: Detailed Stats */}
+        {/* Right: Stat Boxes */}
         <div className="flex gap-4 items-center shrink-0">
           <div className="text-center p-3 bg-green-50 rounded-lg min-w-[70px]">
             <CheckCircle className="w-4 h-4 text-green-600 mx-auto mb-1" />
@@ -144,7 +158,6 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
             <p className="text-lg font-bold text-gray-700">{stat.skippedCount}</p>
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -158,8 +171,7 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0 bg-gray-50">
-        
-        {/* 🔴 HARD QUESTIONS SECTION */}
+        {/* Hard */}
         {hardQuestions.length > 0 && (
           <div className="mb-2">
             <div className="bg-red-50 border-y border-red-100 px-6 py-3 flex items-center gap-2">
@@ -168,13 +180,11 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
                 Hard / Needs Attention ({hardQuestions.length})
               </h3>
             </div>
-            <div className="divide-y divide-gray-100">
-              {hardQuestions.map(renderQuestionRow)}
-            </div>
+            <div className="divide-y divide-gray-100">{hardQuestions.map(renderQuestionRow)}</div>
           </div>
         )}
 
-        {/* 🟡 MODERATE QUESTIONS SECTION */}
+        {/* Moderate */}
         {moderateQuestions.length > 0 && (
           <div className="mb-2">
             <div className="bg-orange-50 border-y border-orange-100 px-6 py-3 flex items-center gap-2">
@@ -183,13 +193,11 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
                 Moderate / Needs Practice ({moderateQuestions.length})
               </h3>
             </div>
-            <div className="divide-y divide-gray-100">
-              {moderateQuestions.map(renderQuestionRow)}
-            </div>
+            <div className="divide-y divide-gray-100">{moderateQuestions.map(renderQuestionRow)}</div>
           </div>
         )}
 
-        {/* 🟢 EASY QUESTIONS SECTION */}
+        {/* Easy */}
         {easyQuestions.length > 0 && (
           <div>
             <div className="bg-green-50 border-y border-green-100 px-6 py-3 flex items-center gap-2">
@@ -198,73 +206,10 @@ export default function QuestionAnalytics({ quizId }: QuestionAnalyticsProps) {
                 Easy / Well Understood ({easyQuestions.length})
               </h3>
             </div>
-            <div className="divide-y divide-gray-100">
-              {easyQuestions.map(renderQuestionRow)}
-            </div>
+            <div className="divide-y divide-gray-100">{easyQuestions.map(renderQuestionRow)}</div>
           </div>
         )}
-
       </CardContent>
     </Card>
   )
 }
-      <CardContent className="p-0 divide-y">
-        {stats.map((stat, index) => {
-          // Identify "Hard" questions (e.g., less than 40% correct rate)
-          const isHardQuestion = stat.correctPercentage < 40 && stat.totalAttempts > 0
-
-          return (
-            <div key={stat.id} className="p-6 hover:bg-slate-50 transition-colors">
-              <div className="flex flex-col md:flex-row gap-6">
-                
-                {/* Left Side: Question Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-bold rounded">
-                      Q{index + 1}
-                    </span>
-                    {isHardQuestion && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">
-                        <AlertTriangle className="w-3 h-3" />
-                        Needs Attention
-                      </span>
-                    )}
-                  </div>
-                  <p className="font-medium text-gray-800 text-sm mb-4">{stat.question_text}</p>
-                  
-                  {/* Progress Bar */}
-                  <div className="flex w-full h-3 rounded-full overflow-hidden bg-gray-100">
-                    <div style={{ width: `${(stat.correctCount / stat.totalAttempts) * 100}%` }} className="bg-green-500" />
-                    <div style={{ width: `${(stat.wrongCount / stat.totalAttempts) * 100}%` }} className="bg-red-500" />
-                    <div style={{ width: `${(stat.skippedCount / stat.totalAttempts) * 100}%` }} className="bg-gray-300" />
-                  </div>
-                </div>
-
-                {/* Right Side: Detailed Stats */}
-                <div className="flex gap-4 items-center shrink-0">
-                  <div className="text-center p-3 bg-green-50 rounded-lg min-w-[80px]">
-                    <CheckCircle className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                    <p className="text-xl font-bold text-green-700">{stat.correctCount}</p>
-                    <p className="text-[10px] uppercase text-green-600 font-semibold">Correct</p>
-                  </div>
-                  <div className="text-center p-3 bg-red-50 rounded-lg min-w-[80px]">
-                    <XCircle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                    <p className="text-xl font-bold text-red-700">{stat.wrongCount}</p>
-                    <p className="text-[10px] uppercase text-red-600 font-semibold">Wrong</p>
-                  </div>
-                  <div className="text-center p-3 bg-gray-100 rounded-lg min-w-[80px]">
-                    <MinusCircle className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                    <p className="text-xl font-bold text-gray-700">{stat.skippedCount}</p>
-                    <p className="text-[10px] uppercase text-gray-500 font-semibold">Skipped</p>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )
-        })}
-      </CardContent>
-    </Card>
-  )
-}
-
