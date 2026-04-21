@@ -24,7 +24,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        
+
         {/* Student Routes */}
         <Route
           path="/dashboard"
@@ -34,8 +34,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* 🔥 FIX: Result aur Review routes ko Detail se upar rakha hai taaki match sahi ho 🔥 */}
         <Route
           path="/quiz/:quizId/result"
           element={
@@ -60,8 +58,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
-        {/* Detail route ab neeche hai taaki ye '/result' ko ID na samajh le */}
         <Route
           path="/quiz/:quizId"
           element={
@@ -70,7 +66,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/history"
           element={
@@ -79,7 +74,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
+
         {/* Admin Routes */}
         <Route
           path="/admin/dashboard"
@@ -105,7 +100,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
         <Route
           path="/admin/quiz/:id/edit"
           element={
@@ -114,7 +108,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
         <Route
           path="/admin/quiz/:quizId/questions"
           element={
@@ -139,47 +132,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <Toaster position="top-right" richColors />
-    </BrowserRouter>
-  )
-}
 
-export default App
-            <ProtectedRoute allowedRoles={['admin']}>
-              <EditQuiz />
-            </ProtectedRoute>
-          }
-        />
-        {/* 👆 YAHAN TAK 👆 */}
-
-        <Route
-          path="/admin/quiz/:quizId/questions"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <ManageQuestions />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/quiz/:quizId/results"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <QuizResults />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/analytics"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <Analytics />
-            </ProtectedRoute>
-          }
-        />
-        
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster position="top-right" richColors />
