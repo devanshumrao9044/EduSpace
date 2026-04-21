@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import type { Quiz, QuizAttempt } from '@/types/database'
+import QuestionAnalytics from '@/components/features/QuestionAnalytics'
 
 interface AttemptWithProfile extends QuizAttempt {
   profiles?: {
