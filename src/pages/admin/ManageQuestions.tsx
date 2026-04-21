@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X, Upload, FileSpreadsheet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ export default function ManageQuestions() {
   const navigate = useNavigate()
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
+  const [isUploading, setIsUploading] = useState(false)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [questionType, setQuestionType] = useState<'mcq' | 'integer' | 'paragraph'>('mcq')
@@ -28,6 +29,47 @@ export default function ManageQuestions() {
     const { data } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number', { ascending: true })
     setQuestions(data || [])
     setLoading(false)
+  }
+
+  // 🔥 CSV BULK UPLOAD LOGIC 🔥
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    const reader = new FileReader()
+    
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string
+        const lines = text.split('\n').filter(line => line.trim() !== '').slice(1) // Skip Header
+
+        const payload = lines.map((line, idx) => {
+          const [text, type, marks, correct, a, b, c, d] = line.split(',').map(item => item.trim())
+          return {
+            quiz_id: quizId!,
+            question_text: text,
+            question_type: type?.toLowerCase() || 'mcq',
+            marks: parseInt(marks) || 1,
+            correct_answer: correct,
+            options: type?.toLowerCase() === 'mcq' ? { A: a, B: b, C: c, D: d } : null,
+            order_number: questions.length + idx + 1
+          }
+        })
+
+        const { error } = await supabase.from('questions').insert(payload)
+        if (error) throw error
+
+        toast.success(`${payload.length} Questions Added via CSV!`)
+        loadQuestions()
+      } catch (err) {
+        toast.error("Format error! Check your CSV columns.")
+        console.error(err)
+      } finally {
+        setIsUploading(false)
+      }
+    }
+    reader.readAsText(file)
   }
 
   const handleEdit = (q: Question) => {
@@ -92,7 +134,22 @@ export default function ManageQuestions() {
             <Card className={editingId ? "border-blue-500 shadow-lg" : ""}>
               <CardHeader>
                 <CardTitle className="flex justify-between items-center">
-                  {editingId ? "Editing Question" : "Add Question"}
+                  <div className="flex items-center gap-3">
+                    <span>{editingId ? "Editing Question" : "Add Question"}</span>
+                    {!editingId && (
+                      <div className="relative">
+                        <input type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" id="csv-input" disabled={isUploading} />
+                        <label htmlFor="csv-input">
+                          <Button variant="outline" size="sm" asChild className="cursor-pointer border-dashed border-green-500 text-green-600 hover:bg-green-50">
+                            <span>
+                              {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                              Bulk CSV
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
+                    )}
+                  </div>
                   {editingId && (
                     <Button variant="ghost" size="sm" onClick={resetForm}>
                       <X className="h-4 w-4 mr-1"/> Cancel
