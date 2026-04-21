@@ -366,6 +366,12 @@ export default function QuizResults() {
             )}
           </CardContent>
         </Card>
+
+        {/* YAHAN LAGA HAI NAYA QUESTION ANALYTICS COMPONENT 👇 */}
+        {quizId && attempts.length > 0 && (
+          <QuestionAnalytics quizId={quizId} />
+        )}
+
       </main>
     </div>
   )
