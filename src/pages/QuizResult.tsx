@@ -36,14 +36,13 @@ export default function QuizResult() {
         return
       }
 
-      // 👇 Ye check error ko aane se rokega
       if (!quizId || quizId === 'undefined') {
-        toast.error('Quiz ID is missing!')
+        toast.error('Quiz ID is missing in URL!')
         navigate('/dashboard')
         return
       }
 
-      // 1. Fetch Quiz (limit 1 taaki crash na ho)
+      // 1. Fetch Quiz (With Detective Logging)
       const { data: quizData, error: quizError } = await supabase
         .from('quizzes')
         .select('*')
@@ -51,20 +50,29 @@ export default function QuizResult() {
         .limit(1)
         .maybeSingle()
 
+      // 👇 YAHAN JASOOS LOGIC LAGA HAI 👇
       if (quizError || !quizData) {
-        toast.error('Could not find the quiz details.')
+        console.error("Full Quiz Error:", quizError)
+        // Ye toast aapko screen par batayega ki ID kya aayi hai
+        toast.error(`Failed to load Quiz ID: ${quizId}`) 
         setLoading(false)
         return
       }
+      // 👆 JASOOS LOGIC KHATAM 👆
 
-      // 2. Fetch Attempt (Student ka 1 hi result uthayega)
+      // 2. Fetch Attempt
       const { data: attemptData, error: attemptError } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quizId)
         .eq('student_id', user.id)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      if (attemptError) {
+        console.warn('Attempt warning:', attemptError.message)
+      }
 
       // 3. Fetch Questions
       const { data: questionsData } = await supabase
