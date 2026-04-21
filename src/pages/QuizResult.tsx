@@ -28,7 +28,6 @@ export default function QuizResult() {
     loadResult()
   }, [quizId])
 
-  // 👇 YAHAN MAINE BULLETPROOF LOGIC LAGA DIYA HAI 👇
   const loadResult = async () => {
     try {
       const user = await authService.getCurrentUser()
@@ -37,41 +36,42 @@ export default function QuizResult() {
         return
       }
 
-      // 1. Fetch Quiz Info
+      // 👇 Ye check error ko aane se rokega
+      if (!quizId || quizId === 'undefined') {
+        toast.error('Quiz ID is missing!')
+        navigate('/dashboard')
+        return
+      }
+
+      // 1. Fetch Quiz (limit 1 taaki crash na ho)
       const { data: quizData, error: quizError } = await supabase
         .from('quizzes')
         .select('*')
         .eq('id', quizId)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
-      if (quizError) {
-        toast.error(`Quiz load error: ${quizError.message}`)
+      if (quizError || !quizData) {
+        toast.error('Could not find the quiz details.')
         setLoading(false)
         return
       }
 
-      // 2. Fetch Attempt Info (maybeSingle use kiya hai taaki crash na ho)
+      // 2. Fetch Attempt (Student ka 1 hi result uthayega)
       const { data: attemptData, error: attemptError } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quizId)
         .eq('student_id', user.id)
+        .limit(1)
         .maybeSingle()
 
-      if (attemptError) {
-        toast.error(`Attempt error: ${attemptError.message}`)
-      }
-
       // 3. Fetch Questions
-      const { data: questionsData, error: questionsError } = await supabase
+      const { data: questionsData } = await supabase
         .from('questions')
         .select('*')
         .eq('quiz_id', quizId)
         .order('order_number')
-
-      if (questionsError) {
-        console.warn("Questions load error:", questionsError.message)
-      }
 
       setQuiz(quizData)
       setAttempt(attemptData)
@@ -84,7 +84,6 @@ export default function QuizResult() {
       setLoading(false)
     }
   }
-  // 👆 BULLETPROOF LOGIC KHATAM 👆
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
@@ -186,15 +185,14 @@ export default function QuizResult() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/history')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+            Back to History
           </Button>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Header Card */}
         <Card className={`${passed ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'} text-white`}>
           <CardContent className="p-8 text-center">
             {showDetailedResults ? (
@@ -217,7 +215,6 @@ export default function QuizResult() {
           </CardContent>
         </Card>
 
-        {/* Quiz Info */}
         <Card>
           <CardHeader>
             <CardTitle>{quiz.title}</CardTitle>
@@ -240,10 +237,8 @@ export default function QuizResult() {
           </CardContent>
         </Card>
 
-        {/* Detailed results block */}
         {showDetailedResults && (
           <>
-            {/* Score Card */}
             <Card>
               <CardContent className="p-6">
                 <div className="grid sm:grid-cols-2 gap-6">
@@ -295,7 +290,6 @@ export default function QuizResult() {
               </CardContent>
             </Card>
 
-            {/* Question Review */}
             <Card>
               <CardHeader>
                 <CardTitle>Answer Review</CardTitle>
@@ -355,14 +349,12 @@ export default function QuizResult() {
               </CardContent>
             </Card>
 
-            {/* Leaderboard */}
             {quizId && (
               <QuizLeaderboard quizId={quizId} totalMarks={quiz.total_marks} />
             )}
           </>
         )}
 
-        {/* Hidden results message */}
         {!showDetailedResults && (
           <Card>
             <CardContent className="text-center py-12">
@@ -371,7 +363,7 @@ export default function QuizResult() {
               <p className="text-muted-foreground mb-6">
                 Your quiz has been submitted successfully. The instructor will publish the results later.
               </p>
-              <Button onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+              <Button onClick={() => navigate('/history')}>Back to History</Button>
             </CardContent>
           </Card>
         )}
@@ -379,4 +371,3 @@ export default function QuizResult() {
     </div>
   )
 }
-
