@@ -1,110 +1,147 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Upload, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Upload, Loader2, Pencil, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase } from '@/lib/supabase'
 import type { Quiz, Question, QuestionInsert } from '@/types/database'
-import Papa from 'papaparse'
 
 export default function ManageQuestions() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
-  const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  
+  // 🔥 Ek hi form use hoga Add aur Edit dono ke liye
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [questionType, setQuestionType] = useState<'mcq' | 'integer' | 'paragraph'>('mcq')
   const [formData, setFormData] = useState({
     question_text: '', optionA: '', optionB: '', optionC: '', optionD: '', correct_answer: '', marks: 1
   })
 
-  useEffect(() => {
-    if (quizId) { loadQuiz(); loadQuestions(); }
-  }, [quizId])
-
-  const loadQuiz = async () => {
-    const { data } = await supabase.from('quizzes').select('*').eq('id', quizId).single()
-    if (data) setQuiz(data)
-  }
+  useEffect(() => { if (quizId) loadQuestions() }, [quizId])
 
   const loadQuestions = async () => {
-    try {
-      const { data, error } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number', { ascending: true })
-      if (error) throw error
-      setQuestions(data || [])
-    } finally { setLoading(false) }
+    const { data } = await supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number', { ascending: true })
+    setQuestions(data || [])
+    setLoading(false)
   }
 
-  /* ─── CSV SANITIZER (Mobile Notes Fixer) ─── */
-  const sanitizeAndParse = (rawText: string) => {
-    let clean = rawText.split('\n')
-      .map(line => line.trim().replace(/^"|"$/g, ''))
-      .join('');
-    clean = clean.replace(/""/g, '"');
-    const formatted = clean.replace(/(\d)"/g, '$1\n"');
-    return formatted;
+  // --- EDIT BUTTON CLICK ---
+  const handleEdit = (q: Question) => {
+    setEditingId(q.id)
+    setQuestionType(q.question_type)
+    setFormData({
+      question_text: q.question_text,
+      optionA: q.options?.A || '',
+      optionB: q.options?.B || '',
+      optionC: q.options?.C || '',
+      optionD: q.options?.D || '',
+      correct_answer: q.correct_answer,
+      marks: q.marks
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' }) // Form par le jane ke liye
   }
 
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const resetForm = () => {
+    setEditingId(null)
+    setFormData({ question_text: '', optionA: '', optionB: '', optionC: '', optionD: '', correct_answer: '', marks: 1 })
+  }
 
-    setIsUploading(true)
-    const reader = new FileReader()
-    reader.onload = async (event) => {
-      try {
-        const rawText = event.target?.result as string
-        const fixedCSV = sanitizeAndParse(rawText)
-
-        Papa.parse(fixedCSV, {
-          header: true,
-          skipEmptyLines: true,
-          complete: async (results) => {
-            const csvQuestions: QuestionInsert[] = results.data
-              .filter((row: any) => row.question_text || row.question)
-              .map((row: any, index: number) => {
-                const type = (row.question_type || row.type || 'mcq').toLowerCase()
-                return {
-                  quiz_id: quizId!,
-                  question_text: row.question_text || row.question || '',
-                  question_type: type as any,
-                  options: type === 'mcq' ? {
-                    A: row.option_a || row.optionA || '',
-                    B: row.option_b || row.optionB || '',
-                    C: row.option_c || row.optionC || '',
-                    D: row.option_d || row.optionD || ''
-                  } : null,
-                  correct_answer: String(row.correct_answer || row.answer || ''),
-                  marks: parseInt(row.marks || '1'),
-                  order_number: questions.length + index + 1
-                }
-              })
-
-            if (csvQuestions.length === 0) throw new Error('No questions found. Check format.')
-
-            const { error } = await supabase.from('questions').insert(csvQuestions)
-            if (error) throw error
-
-            toast.success(`${csvQuestions.length} questions uploaded!`)
-            loadQuestions()
-          },
-          error: () => toast.error('Parsing failed')
-        })
-      } catch (err: any) {
-        toast.error(err.message || 'Upload failed')
-      } finally {
-        setIsUploading(false)
-        e.target.value = ''
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const payload = {
+      quiz_id: quizId!,
+      question_text: formData.question_text,
+      question_type: questionType,
+      correct_answer: formData.correct_answer,
+      marks: formData.marks,
+      options: questionType === 'mcq' ? { A: formData.optionA, B: formData.optionB, C: formData.optionC, D: formData.optionD } : null
     }
-    reader.readAsText(file)
+
+    if (editingId) {
+      await supabase.from('questions').update(payload).eq('id', editingId)
+      toast.success('Question Updated')
+    } else {
+      await supabase.from('questions').insert([{ ...payload, order_number: questions.length + 1 }])
+      toast.success('Question Added')
+    }
+    resetForm()
+    loadQuestions()
   }
+
+  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Button variant="ghost" onClick={() => navigate('/admin/quizzes')}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* FORM SECTION */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className={editingId ? "border-blue-500 shadow-lg" : ""}>
+              <CardHeader>
+                <CardTitle className="flex justify-between items-center">
+                  {editingId ? "Editing Question" : "Add Question"}
+                  {editingId && <Button variant="ghost" size="sm" onClick={resetForm}><X className="h-4 w-4 mr-1"/> Cancel</Button>}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={questionType} onValueChange={(v) => setQuestionType(v as any)} className="mb-4">
+                  <TabsList className="grid w-full grid-cols-3"><TabsTrigger value="mcq">MCQ</TabsTrigger><TabsTrigger value="integer">Int</TabsTrigger><TabsTrigger value="paragraph">Para</TabsTrigger></TabsList>
+                </Tabs>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <Textarea placeholder="Question Text" value={formData.question_text} onChange={e => setFormData({...formData, question_text: e.target.value})} required/>
+                  {questionType === 'mcq' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})}/>
+                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})}/>
+                    </div>
+                  )}
+                  <Input placeholder="Answer" value={formData.correct_answer} onChange={e => setFormData({...formData, correct_answer: e.target.value})}/>
+                  <Button type="submit" className={`w-full ${editingId ? 'bg-blue-600' : 'bg-green-600'}`}>
+                    {editingId ? <><Pencil className="mr-2 h-4 w-4"/> Update Question</> : <><Plus className="mr-2 h-4 w-4"/> Add Question</>}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* LIST SECTION (Jahan Edit/Delete buttons hain) */}
+          <Card>
+            <CardHeader><CardTitle>Questions ({questions.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
+              {questions.map((q, i) => (
+                <div key={q.id} className={`p-3 border rounded-lg flex justify-between items-center bg-white ${editingId === q.id ? 'border-blue-500 bg-blue-50' : ''}`}>
+                  <div className="truncate pr-2">
+                    <span className="font-bold text-xs text-gray-400">Q{i+1}</span>
+                    <p className="text-sm truncate font-medium">{q.question_text}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {/* 🔥 EDIT BUTTON - SAME STYLE AS DELETE */}
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="hover:bg-blue-100">
+                      <Pencil className="h-4 w-4 text-blue-600" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={async () => { if(confirm('Delete?')) { await supabase.from('questions').delete().eq('id', q.id); loadQuestions(); } }} className="hover:bg-red-100">
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
 
   /* ─── Manual Actions ─── */
   const handleAddQuestion = async (e: React.FormEvent) => {
