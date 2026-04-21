@@ -101,7 +101,8 @@ export default function ManageQuestions() {
                     {/* 🔥 Teri Bulk Uploader File yahan use ho rahi hai */}
                     {!editingId && (
                       <QuestionBulkUploader 
-                        quizId={quizId!} 
+                        quizId={quizId!}
+                        questionsCount={questions.length}
                         onUploadComplete={loadQuestions} 
                       />
                     )}
