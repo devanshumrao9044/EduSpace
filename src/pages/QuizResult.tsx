@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { 
-  ArrowLeft, CheckCircle, XCircle, 
+import {
+  ArrowLeft, CheckCircle, XCircle,
   AlertCircle, Trophy, Zap, Eye, X
 } from 'lucide-react'
 import QuizLeaderboard from '@/components/features/QuizLeaderboard'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { authService } from '@/lib/auth'
@@ -21,6 +20,7 @@ interface Answer {
 export default function QuizResult() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
+
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [attempt, setAttempt] = useState<any>(null)
@@ -34,8 +34,9 @@ export default function QuizResult() {
   const loadResult = async () => {
     try {
       const user = await authService.getCurrentUser()
-      if (!user) { navigate('/login'); return; }
+      if (!user) { navigate('/login'); return }
 
+      // maybeSingle() used to avoid crashes when no row found
       const { data: quizData, error: qErr } = await supabase
         .from('quizzes')
         .select('*')
@@ -55,6 +56,7 @@ export default function QuizResult() {
 
       if (aErr || !attemptData) throw new Error('Attempt not found')
 
+      // Count how many live participants scored higher
       const { count: liveToppersAbove } = await supabase
         .from('quiz_attempts')
         .select('*', { count: 'exact', head: true })
@@ -74,7 +76,7 @@ export default function QuizResult() {
       setQuestions(qData || [])
       setAttempt({ ...attemptData, isLive, calculatedRank: (liveToppersAbove || 0) + 1 })
     } catch (error: any) {
-      console.error('Error:', error)
+      console.error('Result load error:', error)
       toast.error('Result load karne mein panga hua hai')
     } finally {
       setLoading(false)
@@ -89,7 +91,6 @@ export default function QuizResult() {
     questions.forEach(q => {
       const uAns = answers[q.id]?.answer?.trim().toUpperCase()
       const cAns = q.correct_answer?.trim().toUpperCase()
-
       if (!uAns) skipped++
       else if (uAns === cAns) correct++
       else wrong++
@@ -100,18 +101,23 @@ export default function QuizResult() {
     return { correct, wrong, skipped, accuracy }
   }
 
+  // ─── Loading state ────────────────────────────────────────
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-slate-50">
       <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
     </div>
   )
 
-  if (!attempt) return <div className="p-20 text-center font-bold">Result not found.</div>
+  if (!attempt) return (
+    <div className="p-20 text-center font-bold text-slate-500">Result not found.</div>
+  )
 
   const stats = calculateStats()
 
+  // ─── Render ───────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Header */}
       <header className="bg-white border-b sticky top-0 z-20 px-4 py-4 flex justify-between items-center shadow-sm">
         <Button variant="ghost" onClick={() => navigate('/dashboard')} className="font-bold">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
@@ -120,7 +126,8 @@ export default function QuizResult() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 sm:p-8 space-y-8">
-        {/* HERO SECTION */}
+
+        {/* Hero Score Section */}
         <div className={`rounded-3xl p-8 text-white shadow-2xl ${attempt.isLive ? 'bg-indigo-600' : 'bg-slate-800'}`}>
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="text-center md:text-left">
@@ -143,7 +150,7 @@ export default function QuizResult() {
           </div>
         </div>
 
-        {/* STATS GRID */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatBox color="text-emerald-600" bg="bg-emerald-50" icon={<CheckCircle />} label="Correct" value={stats.correct} />
           <StatBox color="text-rose-600" bg="bg-rose-50" icon={<XCircle />} label="Wrong" value={stats.wrong} />
@@ -151,6 +158,7 @@ export default function QuizResult() {
           <StatBox color="text-blue-600" bg="bg-blue-50" icon={<Zap />} label="Accuracy" value={`${stats.accuracy.toFixed(1)}%`} />
         </div>
 
+        {/* Review Button */}
         <Button
           className="w-full h-20 text-xl font-black shadow-xl hover:scale-[1.01] transition-all bg-white text-indigo-600 border-2 border-indigo-100 hover:bg-indigo-50"
           onClick={() => setIsReviewOpen(true)}
@@ -158,7 +166,7 @@ export default function QuizResult() {
           <Eye className="mr-3 h-6 w-6" /> VIEW ANSWER ANALYSIS
         </Button>
 
-        {/* LEADERBOARD */}
+        {/* Leaderboard */}
         <div className="pt-10 border-t border-slate-200">
           <h3 className="text-2xl font-black mb-8 flex items-center gap-3 italic text-slate-800">
             <Trophy className="text-yellow-500 w-8 h-8" /> OFFICIAL TOPPERS
@@ -167,7 +175,7 @@ export default function QuizResult() {
         </div>
       </main>
 
-      {/* REVIEW MODAL */}
+      {/* Answer Review Modal */}
       {isReviewOpen && (
         <div className="fixed inset-0 z-[100] bg-white overflow-y-auto animate-in fade-in slide-in-from-bottom duration-300">
           <div className="sticky top-0 bg-white border-b p-5 flex justify-between items-center z-50 shadow-sm">
@@ -201,6 +209,7 @@ export default function QuizResult() {
                     </Badge>
                   </div>
 
+                  {/* MCQ Options */}
                   {q.question_type === 'mcq' && (
                     <div className="grid gap-4">
                       {['A', 'B', 'C', 'D'].map((optKey) => {
@@ -228,6 +237,7 @@ export default function QuizResult() {
                     </div>
                   )}
 
+                  {/* Integer / Paragraph Answer Comparison */}
                   {q.question_type !== 'mcq' && (
                     <div className="mt-4 grid sm:grid-cols-2 gap-4">
                       <div className={`p-4 rounded-xl border-2 ${isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
@@ -256,7 +266,14 @@ export default function QuizResult() {
   )
 }
 
-function StatBox({ icon, label, value, color, bg }: any) {
+// ─── StatBox helper component (defined once) ─────────────────
+function StatBox({ icon, label, value, color, bg }: {
+  icon: React.ReactNode
+  label: string
+  value: string | number
+  color: string
+  bg: string
+}) {
   return (
     <div className={`p-5 rounded-3xl ${bg} flex items-center gap-4 shadow-sm border border-white/50 transition-all hover:translate-y-[-2px]`}>
       <div className={`h-12 w-12 rounded-2xl bg-white flex items-center justify-center shadow-sm ${color}`}>

@@ -167,7 +167,7 @@ export default function QuizAttempt() {
     }
 
     toast.success(isAuto ? 'Auto-submitted!' : 'Success!')
-    navigate(`/quiz/${quizId}/result`)
+    navigate(`/quiz/${quizId}/result`)  // ✅ Correct: /quiz/[id]/result
   }
 
   const handleAutoSubmit = async () => {
