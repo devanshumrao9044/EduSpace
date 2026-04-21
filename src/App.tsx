@@ -24,13 +24,29 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
+        
         {/* Student Routes */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/:quizId"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quiz/:quizId/attempt"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <QuizAttempt />
             </ProtectedRoute>
           }
         />
@@ -51,22 +67,6 @@ function App() {
           }
         />
         <Route
-          path="/quiz/:quizId/attempt"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <QuizAttempt />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/quiz/:quizId"
-          element={
-            <ProtectedRoute allowedRoles={['student']}>
-              <QuizDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/history"
           element={
             <ProtectedRoute allowedRoles={['student']}>
@@ -74,7 +74,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        
         {/* Admin Routes */}
         <Route
           path="/admin/dashboard"
@@ -100,6 +100,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
+        {/* 👇 NAYA EDIT WALA ROUTE YAHAN HAI 👇 */}
         <Route
           path="/admin/quiz/:id/edit"
           element={
@@ -108,6 +110,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* 👆 YAHAN TAK 👆 */}
+
         <Route
           path="/admin/quiz/:quizId/questions"
           element={
@@ -132,7 +136,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster position="top-right" richColors />

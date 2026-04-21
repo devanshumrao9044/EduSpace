@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Clock, Award, Calendar, PlayCircle, AlertCircle, History } from 'lucide-react'
+import { ArrowLeft, Clock, Award, Calendar, PlayCircle, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { authService } from '@/lib/auth'
 import type { Quiz, QuizAttempt } from '@/types/database'
@@ -51,6 +50,7 @@ export default function QuizDetail() {
     return () => clearInterval(interval)
   }, [quiz])
 
+  // 👇 YAHAN LAGA HAI ASLI LOCK 👇
   const loadQuiz = async () => {
     try {
       const user = await authService.getCurrentUser()
@@ -68,15 +68,18 @@ export default function QuizDetail() {
       if (quizError) throw quizError
       setQuiz(quizData)
 
-      // Fetch ONLY the first/latest attempt to show status
-      const { data: attemptData } = await supabase
+      // Bulletproof check: Ek hi baar attempt uthayega aur crash bhi nahi hoga
+      const { data: attemptData, error: attemptError } = await supabase
         .from('quiz_attempts')
         .select('*')
         .eq('quiz_id', quizId)
         .eq('student_id', user.id)
-        .order('submitted_at', { ascending: true }) // First attempt for official score
         .limit(1)
         .maybeSingle()
+
+      if (attemptError) {
+         console.warn("Attempt fetch error:", attemptError.message)
+      }
 
       setAttempt(attemptData)
     } catch (error: any) {
@@ -86,8 +89,9 @@ export default function QuizDetail() {
       setLoading(false)
     }
   }
+  // 👆 LOCK KHATAM 👆
 
-  const handleStartQuiz = () => {
+  const handleStartQuiz = async () => {
     if (!quiz) return
 
     const now = new Date()
@@ -99,14 +103,14 @@ export default function QuizDetail() {
       return
     }
 
-    // 🔥 Re-attempt Alert
+    if (now > end) {
+      toast.error('Quiz has ended')
+      return
+    }
+
     if (attempt) {
-        const isPractice = now > end;
-        const msg = isPractice 
-            ? "Live deadline khatam ho chuki hai. Ye attempt sirf 'Practice' ke liye hoga. Shuru karein?"
-            : "Aapne ye test pehle diya hai. Re-attempt karne par ye official rank mein nahi aayega. Shuru karein?";
-        
-        if (!window.confirm(msg)) return;
+      toast.error('You have already attempted this quiz')
+      return
     }
 
     navigate(`/quiz/${quizId}/attempt`)
@@ -114,131 +118,206 @@ export default function QuizDetail() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
-  const renderActionSection = () => {
-    if (!quiz) return null
+  const isQuizAvailable = () => {
+    if (!quiz) return false
     const now = new Date()
     const start = new Date(quiz.start_time)
     const end = new Date(quiz.end_time)
+    return now >= start && now <= end && !attempt
+  }
 
-    // 1. Upcoming
-    if (now < start) {
-      return (
-        <div className="p-6 bg-indigo-50 border border-indigo-100 rounded-2xl text-center">
-          <Clock className="w-10 h-10 text-indigo-600 mx-auto mb-3" />
-          <h3 className="font-bold text-indigo-900 text-lg">Quiz Starts In</h3>
-          <p className="text-2xl font-black text-indigo-600">{timeUntilStart}</p>
-        </div>
-      )
-    }
+  const isQuizUpcoming = () => {
+    if (!quiz) return false
+    const now = new Date()
+    const start = new Date(quiz.start_time)
+    return now < start
+  }
 
-    // 2. Live or Ended (Re-attempt allowed)
-    const isLive = now >= start && now <= end;
-
+  if (loading) {
     return (
-      <div className="space-y-4">
-        <Button size="lg" className={`w-full text-lg h-14 ${!isLive ? 'bg-orange-600 hover:bg-orange-700' : ''}`} onClick={handleStartQuiz}>
-          <PlayCircle className="w-5 h-5 mr-2" />
-          {!attempt ? (isLive ? 'Start Live Quiz' : 'Start Practice Mode') : 'Re-attempt Quiz'}
-        </Button>
-        
-        {attempt && (
-          <Button variant="outline" size="lg" className="w-full h-14" onClick={() => navigate(`/quiz/${quizId}/result`)}>
-            View Previous Analysis
-          </Button>
-        )}
-
-        {!isLive && !attempt && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium">
-                <AlertCircle className="w-4 h-4"/>
-                Aapne Live test miss kar diya hai. Ab aap sirf practice kar sakte hain.
-            </div>
-        )}
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading quiz...</p>
+        </div>
       </div>
     )
   }
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-bold">Loading Quiz Details...</div>
+  if (!quiz) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="font-semibold text-lg mb-2">Quiz not found</h3>
+            <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}><ArrowLeft /></Button>
-        <h1 className="font-bold text-lg">Quiz Overview</h1>
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-4 sm:p-8">
-        <Card className="border-none shadow-lg overflow-hidden rounded-3xl">
-          <CardHeader className="bg-white border-b p-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div className="space-y-1">
-                <CardTitle className="text-3xl font-black text-slate-800">{quiz.title}</CardTitle>
-                <p className="text-slate-500 font-medium">{quiz.description}</p>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl mb-2">{quiz.title}</CardTitle>
+                <p className="text-muted-foreground">{quiz.description}</p>
               </div>
               {attempt && (
-                <Badge className="bg-emerald-500 text-white px-4 py-1 text-sm rounded-full">
-                  Official Score: {attempt.score}/{quiz.total_marks}
-                </Badge>
+                <div className="px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
+                  Completed
+                </div>
               )}
             </div>
           </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Quiz Stats */}
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Duration</p>
+                    <p className="font-semibold">{quiz.duration_minutes} minutes</p>
+                  </div>
+                </div>
+              </div>
 
-          <CardContent className="p-8 space-y-8">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                <Clock className="w-6 h-6 text-blue-500 mx-auto mb-2"/>
-                <p className="text-[10px] font-black text-slate-400 uppercase">Duration</p>
-                <p className="font-bold text-slate-700">{quiz.duration_minutes} Mins</p>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Award className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Marks</p>
+                    <p className="font-semibold">{quiz.total_marks}</p>
+                  </div>
+                </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                <Award className="w-6 h-6 text-purple-500 mx-auto mb-2"/>
-                <p className="text-[10px] font-black text-slate-400 uppercase">Max Marks</p>
-                <p className="font-bold text-slate-700">{quiz.total_marks}</p>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                <Target className="w-6 h-6 text-emerald-500 mx-auto mb-2"/>
-                <p className="text-[10px] font-black text-slate-400 uppercase">Passing</p>
-                <p className="font-bold text-slate-700">{quiz.passing_marks}</p>
+
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Award className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Passing Marks</p>
+                    <p className="font-semibold">{quiz.passing_marks}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Schedule Info */}
-            <div className="grid sm:grid-cols-2 gap-4">
-                <div className="p-4 border rounded-2xl flex items-center gap-4">
-                    <Calendar className="text-slate-400"/>
-                    <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase">Start Date</p>
-                        <p className="text-sm font-bold">{formatDate(quiz.start_time)}</p>
-                    </div>
-                </div>
-                <div className="p-4 border rounded-2xl flex items-center gap-4">
-                    <Calendar className="text-slate-400"/>
-                    <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase">End Date</p>
-                        <p className="text-sm font-bold">{formatDate(quiz.end_time)}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Important Notes */}
-            <div className="p-6 bg-amber-50 border border-amber-100 rounded-2xl space-y-3">
-              <h3 className="font-bold text-amber-800 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4"/> Important Instructions
+            {/* Schedule */}
+            <div className="p-4 border rounded-lg space-y-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Schedule
               </h3>
-              <ul className="text-sm text-amber-700 space-y-2 font-medium">
-                <li>• Aap is quiz ko jitni baar chahein attempt kar sakte hain.</li>
-                <li>• Sirf aapka <b>pehla submission</b> hi official rank ke liye mana jayega.</li>
-                <li>• Baaki saare attempts 'Practice' category mein aayenge.</li>
+              <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground mb-1">Start Time</p>
+                  <p className="font-medium">{formatDate(quiz.start_time)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-1">End Time</p>
+                  <p className="font-medium">{formatDate(quiz.end_time)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Countdown Timer for Upcoming Quizzes */}
+            {isQuizUpcoming() && (
+              <div className="p-6 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-center">
+                <Clock className="w-12 h-12 mx-auto mb-3 opacity-90" />
+                <h3 className="font-bold text-xl mb-2">Quiz Starts In</h3>
+                <p className="text-3xl font-bold">{timeUntilStart}</p>
+              </div>
+            )}
+
+            {/* Rules */}
+            <div className="p-4 border rounded-lg space-y-3">
+              <h3 className="font-semibold">Quiz Rules</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>You have {quiz.duration_minutes} minutes to complete this quiz</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>You can attempt this quiz only once</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Quiz must be submitted before the end time</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>
+                    Results will be {quiz.show_results_immediately ? 'shown immediately after submission' : 'published later by the instructor'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>Passing marks: {quiz.passing_marks}/{quiz.total_marks}</span>
+                </li>
               </ul>
             </div>
 
-            {/* 🔥 Action Section 🔥 */}
+            {/* Action Button */}
             <div className="pt-4">
-              {renderActionSection()}
+              {isQuizAvailable() ? (
+                <Button
+                  size="lg"
+                  className="w-full text-lg"
+                  onClick={handleStartQuiz}
+                >
+                  <PlayCircle className="w-5 h-5 mr-2" />
+                  Start Quiz Now
+                </Button>
+              ) : isQuizUpcoming() ? (
+                <Button size="lg" className="w-full" disabled>
+                  <Clock className="w-5 h-5 mr-2" />
+                  Quiz Not Started Yet
+                </Button>
+              ) : attempt ? (
+                <Button
+                  size="lg"
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => navigate(`/quiz/${quizId}/review`)}
+                >
+                  View Your Submission
+                </Button>
+              ) : (
+                <Button size="lg" className="w-full" disabled>
+                  Quiz Has Ended
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -247,10 +326,3 @@ export default function QuizDetail() {
   )
 }
 
-function Target(props: any) {
-    return (
-      <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
-      </svg>
-    )
-}
