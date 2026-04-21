@@ -59,7 +59,7 @@ export default function QuizAttempt() {
       setQuiz(quizRes.data)
       setQuestions(questionsRes.data || [])
 
-      // Create a fresh attempt record
+      // Create a fresh attempt record for re-attempts
       const { data: newAttempts, error: insertError } = await supabase
         .from('quiz_attempts')
         .insert([
@@ -170,7 +170,7 @@ export default function QuizAttempt() {
     if (!submitting) await handleSubmit(true)
   }
 
-  /* ─── Effects ────────────────────────────────────────── */
+  /* ─── Anti-Cheat & Effects ───────────────────────────────── */
 
   useEffect(() => {
     initializeAttempt()
@@ -259,7 +259,7 @@ export default function QuizAttempt() {
       </header>
 
       <div className="flex-1 flex max-w-screen-xl mx-auto w-full">
-        <main className="flex-1 p-4 lg:p-10">
+        <main className="flex-1 p-4 lg:p-10 overflow-y-auto">
           <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-white">
             <div className="p-6 bg-slate-50/80 border-b flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -332,7 +332,7 @@ export default function QuizAttempt() {
               <p className="text-[10px] font-bold opacity-70 uppercase">Time Left</p>
               <p className="text-4xl font-black">{formatTime(timeLeft)}</p>
             </div>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-2 overflow-y-auto max-h-[400px] p-1">
               {questions.map((q, i) => (
                 <button
                   key={q.id}
@@ -356,7 +356,7 @@ export default function QuizAttempt() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setStatsOpen(false)} />
           <div className="absolute right-0 top-0 bottom-0 w-[80%] bg-white p-6 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             <div className="flex justify-between items-center mb-8 font-black text-xl">Status <Button variant="ghost" size="icon" onClick={() => setStatsOpen(false)}><X/></Button></div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-2 overflow-y-auto">
               {questions.map((q, i) => (
                 <button key={q.id} onClick={() => { setCurrentQuestionIndex(i); setStatsOpen(false) }} className={`aspect-square rounded-lg font-bold text-xs ${getStatusStyle(q.id, i === currentQuestionIndex)}`}>{i + 1}</button>
               ))}
@@ -368,4 +368,3 @@ export default function QuizAttempt() {
     </div>
   )
 }
-
