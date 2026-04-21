@@ -28,6 +28,7 @@ export default function QuizResult() {
     loadResult()
   }, [quizId])
 
+  // 👇 YAHAN MAINE BULLETPROOF LOGIC LAGA DIYA HAI 👇
   const loadResult = async () => {
     try {
       const user = await authService.getCurrentUser()
@@ -36,27 +37,54 @@ export default function QuizResult() {
         return
       }
 
-      const [quizRes, questionsRes, attemptRes] = await Promise.all([
-        supabase.from('quizzes').select('*').eq('id', quizId).single(),
-        supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number'),
-        supabase.from('quiz_attempts').select('*').eq('quiz_id', quizId).eq('student_id', user.id).single()
-      ])
+      // 1. Fetch Quiz Info
+      const { data: quizData, error: quizError } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('id', quizId)
+        .single()
 
-      if (quizRes.error) throw quizRes.error
-      if (questionsRes.error) throw questionsRes.error
-      if (attemptRes.error) throw attemptRes.error
+      if (quizError) {
+        toast.error(`Quiz load error: ${quizError.message}`)
+        setLoading(false)
+        return
+      }
 
-      setQuiz(quizRes.data)
-      setQuestions(questionsRes.data || [])
-      setAttempt(attemptRes.data)
+      // 2. Fetch Attempt Info (maybeSingle use kiya hai taaki crash na ho)
+      const { data: attemptData, error: attemptError } = await supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('quiz_id', quizId)
+        .eq('student_id', user.id)
+        .maybeSingle()
+
+      if (attemptError) {
+        toast.error(`Attempt error: ${attemptError.message}`)
+      }
+
+      // 3. Fetch Questions
+      const { data: questionsData, error: questionsError } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('quiz_id', quizId)
+        .order('order_number')
+
+      if (questionsError) {
+        console.warn("Questions load error:", questionsError.message)
+      }
+
+      setQuiz(quizData)
+      setAttempt(attemptData)
+      setQuestions(questionsData || [])
+
     } catch (error: any) {
       console.error('Error loading result:', error)
-      toast.error('Failed to load result')
-      navigate('/dashboard')
+      toast.error('Something went wrong!')
     } finally {
       setLoading(false)
     }
   }
+  // 👆 BULLETPROOF LOGIC KHATAM 👆
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
@@ -143,6 +171,7 @@ export default function QuizResult() {
         <Card className="p-8 text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="font-semibold text-lg mb-2">Result not found</h3>
+          <p className="text-muted-foreground text-sm mb-4">Could not find your attempt for this quiz.</p>
           <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
         </Card>
       </div>
@@ -350,3 +379,4 @@ export default function QuizResult() {
     </div>
   )
 }
+
