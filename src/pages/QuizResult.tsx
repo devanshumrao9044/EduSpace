@@ -33,7 +33,7 @@ export default function QuizResult() {
       const { data: quizData } = await supabase.from('quizzes').select('*').eq('id', quizId).maybeSingle()
       if (!quizData) throw new Error('Quiz not found')
 
-      // 2. Fetch Latest Attempt (Re-attempt support)
+      // 2. Fetch Latest Attempt
       const { data: attemptData } = await supabase
         .from('quiz_attempts')
         .select('*')
@@ -50,7 +50,7 @@ export default function QuizResult() {
       const deadlineTime = new Date(quizData.end_time)
       const isLate = submissionTime > deadlineTime
 
-      // 3. Rank Calculation (Sirf Official Toppers ko gino)
+      // 3. Rank Calculation
       const { count: liveToppersAbove } = await supabase
         .from('quiz_attempts')
         .select('*', { count: 'exact', head: true })
@@ -100,6 +100,9 @@ export default function QuizResult() {
     </div>
   )
 
+  // 🔥 CHECK IF RESULTS ARE PUBLISHED 🔥
+  const resultsPublished = quiz?.show_results_immediately === true;
+
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
       <header className="bg-white border-b sticky top-0 z-50 px-4 py-4 flex justify-between items-center shadow-sm">
@@ -111,45 +114,72 @@ export default function QuizResult() {
       </header>
 
       <main className="max-w-4xl mx-auto p-4 sm:p-8 space-y-8">
-        {/* HERO SECTION */}
-        <div className={`rounded-[2.5rem] p-10 text-white shadow-2xl text-center relative overflow-hidden ${attempt.isLate ? 'bg-slate-800' : 'bg-indigo-600'}`}>
-          <div className="relative z-10">
-            <Badge className="bg-white/20 mb-4 px-4 py-1 font-black italic border-none tracking-widest">
-              {attempt.isLate ? 'PRACTICE MODE (LATE)' : 'LIVE PERFORMANCE'}
-            </Badge>
-            
-            <h2 className="text-8xl font-black mb-2 tracking-tighter italic">
-              {attempt.isLate ? '--' : `#${attempt.calculatedRank}`}
-            </h2>
-            <p className="opacity-70 font-bold uppercase text-xs tracking-widest">
-              {attempt.isLate ? 'Not eligible for official ranking' : 'Current Global Rank'}
-            </p>
+        
+        {/* 🔥 RESULT PUBLISH CONDITION 🔥 */}
+        {resultsPublished ? (
+          <>
+            {/* HERO SECTION - WHEN PUBLISHED */}
+            <div className={`rounded-[2.5rem] p-10 text-white shadow-2xl text-center relative overflow-hidden ${attempt.isLate ? 'bg-slate-800' : 'bg-indigo-600'}`}>
+              <div className="relative z-10">
+                <Badge className="bg-white/20 mb-4 px-4 py-1 font-black italic border-none tracking-widest">
+                  {attempt.isLate ? 'PRACTICE MODE (LATE)' : 'LIVE PERFORMANCE'}
+                </Badge>
+                
+                <h2 className="text-8xl font-black mb-2 tracking-tighter italic">
+                  {attempt.isLate ? '--' : `#${attempt.calculatedRank}`}
+                </h2>
+                <p className="opacity-70 font-bold uppercase text-xs tracking-widest">
+                  {attempt.isLate ? 'Not eligible for official ranking' : 'Current Global Rank'}
+                </p>
 
-            <div className="flex justify-center gap-8 mt-10">
-              <ScoreBox label="Your Score" val={attempt.score} />
-              <div className="w-px h-12 bg-white/20" />
-              <ScoreBox label="Total Marks" val={quiz?.total_marks} />
+                <div className="flex justify-center gap-8 mt-10">
+                  <ScoreBox label="Your Score" val={attempt.score} />
+                  <div className="w-px h-12 bg-white/20" />
+                  <ScoreBox label="Total Marks" val={quiz?.total_marks} />
+                </div>
+              </div>
+              <Trophy className="absolute -bottom-6 -right-6 w-48 h-48 opacity-10 rotate-12" />
+            </div>
+
+            {/* STATS GRID */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatBox color="text-emerald-600" bg="bg-emerald-50" icon={<CheckCircle/>} label="Correct" value={stats.correct} />
+              <StatBox color="text-rose-600" bg="bg-rose-50" icon={<XCircle/>} label="Wrong" value={stats.wrong} />
+              <StatBox color="text-amber-600" bg="bg-amber-50" icon={<AlertCircle/>} label="Skipped" value={stats.skipped} />
+              <StatBox color="text-blue-600" bg="bg-blue-50" icon={<Zap/>} label="Accuracy" value={`${stats.accuracy.toFixed(0)}%`} />
+            </div>
+
+            {/* REVIEW BUTTON */}
+            <Button 
+              className="w-full h-20 text-xl font-black shadow-xl hover:scale-[1.01] transition-transform rounded-3xl bg-white text-indigo-600 border-2 border-indigo-100 hover:bg-indigo-50" 
+              onClick={() => setIsReviewOpen(true)}
+            >
+              <Eye className="mr-3 h-6 w-6" /> VIEW DETAILED ANALYSIS
+            </Button>
+          </>
+        ) : (
+          
+          /* 🔥 PENDING RESULT SECTION (Jab Result Off Ho) 🔥 */
+          <div className="rounded-[2.5rem] p-10 bg-slate-900 text-white shadow-2xl text-center relative overflow-hidden">
+            <div className="relative z-10 flex flex-col items-center">
+              <CheckCircle className="w-20 h-20 text-emerald-400 mb-6" />
+              <h2 className="text-3xl font-black mb-2 italic">TEST SUBMITTED!</h2>
+              <p className="opacity-70 font-bold uppercase text-sm tracking-widest max-w-md mx-auto">
+                Your responses have been securely saved. The Admin will publish your rank and score shortly.
+              </p>
+              
+              <Button 
+                variant="outline" 
+                className="mt-8 border-white/20 hover:bg-white/10 text-white font-bold"
+                onClick={() => navigate('/dashboard')}
+              >
+                Return to Dashboard
+              </Button>
             </div>
           </div>
-          <Trophy className="absolute -bottom-6 -right-6 w-48 h-48 opacity-10 rotate-12" />
-        </div>
+        )}
 
-        {/* STATS GRID */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatBox color="text-emerald-600" bg="bg-emerald-50" icon={<CheckCircle/>} label="Correct" value={stats.correct} />
-          <StatBox color="text-rose-600" bg="bg-rose-50" icon={<XCircle/>} label="Wrong" value={stats.wrong} />
-          <StatBox color="text-amber-600" bg="bg-amber-50" icon={<AlertCircle/>} label="Skipped" value={stats.skipped} />
-          <StatBox color="text-blue-600" bg="bg-blue-50" icon={<Zap/>} label="Accuracy" value={`${stats.accuracy.toFixed(0)}%`} />
-        </div>
-
-        <Button 
-          className="w-full h-20 text-xl font-black shadow-xl hover:scale-[1.01] transition-transform rounded-3xl bg-white text-indigo-600 border-2 border-indigo-100 hover:bg-indigo-50" 
-          onClick={() => setIsReviewOpen(true)}
-        >
-          <Eye className="mr-3 h-6 w-6" /> VIEW DETAILED ANALYSIS
-        </Button>
-
-        {/* LEADERBOARD */}
+        {/* LEADERBOARD (Ye hamesha dikhega, chahe personal result off ho, taaki competition feel rahe) */}
         <div className="pt-10 border-t border-slate-200">
            <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-800 italic">
              <Trophy className="text-yellow-500 w-8 h-8" /> OFFICIAL TOPPERS
@@ -159,7 +189,7 @@ export default function QuizResult() {
       </main>
 
       {/* REVIEW MODAL */}
-      {isReviewOpen && (
+      {isReviewOpen && resultsPublished && (
         <div className="fixed inset-0 z-[100] bg-white overflow-y-auto animate-in fade-in slide-in-from-bottom duration-500">
           <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b p-5 flex justify-between items-center z-50">
             <Button variant="ghost" size="icon" onClick={() => setIsReviewOpen(false)} className="rounded-full">
@@ -185,6 +215,12 @@ export default function QuizResult() {
                   
                   <div className="mb-6">
                     <p className="text-xl font-bold text-slate-800 mb-3 leading-tight">{q.question_text}</p>
+                    {/* Image Preview inside modal */}
+                    {q.image_url && (
+                        <div className="my-4">
+                          <img src={q.image_url} alt="Question" className="max-h-[300px] object-contain rounded-xl border-2 border-slate-100 shadow-sm" />
+                        </div>
+                    )}
                     <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                       Points: {q.marks}
                     </Badge>
@@ -239,3 +275,4 @@ function StatBox({ icon, label, value, color, bg }: any) {
     </div>
   )
 }
+
