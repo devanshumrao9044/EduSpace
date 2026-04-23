@@ -57,7 +57,7 @@ export default function RegisterPage() {
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
               <BookOpen className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground">EduSpace</h1>
+            <h1 className="text-3xl font-bold text-foreground">MATERIALHUBX QUIZ</h1>
           </div>
           
           <div className="space-y-4">
@@ -89,7 +89,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <p className="text-muted-foreground italic">
-              "EduSpace transformed how I learn. The platform is intuitive, content is top-notch, and I can study at my own pace."
+              "MATERIALHUBX QUIZ transformed how I learn. The platform is intuitive, content is top-notch, and I can study at my own pace."
             </p>
           </div>
         </div>
