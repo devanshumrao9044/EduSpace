@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { CheckCircle, Trophy, Clock, X, ChevronLeft, ChevronRight, Loader2, Home, RotateCcw } from 'lucide-react'
+import { CheckCircle, Trophy, Clock, X, ChevronLeft, ChevronRight, Loader2, Home, Medal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ export default function QuizResult() {
   const [quiz, setQuiz] = useState<any>(null)
   const [questions, setQuestions] = useState<any[]>([])
   const [attempt, setAttempt] = useState<any>(null)
+  const [leaderboard, setLeaderboard] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // Answer review modal state
@@ -55,6 +56,16 @@ export default function QuizResult() {
       setQuiz(quizRes.data)
       setQuestions(questionsRes.data || [])
       setAttempt(attemptRes.data)
+
+      // Fetch top-10 leaderboard for this quiz
+      const { data: lb } = await supabase
+        .from('quiz_attempts')
+        .select('student_id, score, profiles!quiz_attempts_student_id_fkey(full_name)')
+        .eq('quiz_id', quizId)
+        .not('submitted_at', 'is', null)
+        .order('score', { ascending: false })
+        .limit(10)
+      setLeaderboard(lb || [])
     } catch {
       toast.error('Failed to load result')
       navigate('/dashboard')
@@ -206,6 +217,68 @@ export default function QuizResult() {
             <span>{totalMarks}</span>
           </div>
         </Card>
+
+        {/* ── Leaderboard ── */}
+        {leaderboard.length > 0 && (
+          <Card className="rounded-[2rem] shadow-xl border-none bg-white mb-4 overflow-hidden">
+            <div className="px-6 pt-6 pb-3 flex items-center gap-3 border-b border-slate-50">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Trophy className="w-4 h-4 text-amber-500" />
+              </div>
+              <div>
+                <p className="font-black text-slate-800 text-sm">Leaderboard</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Top {leaderboard.length} Students</p>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-50">
+              {leaderboard.map((entry, i) => {
+                const isMe = entry.student_id === attempt?.student_id
+                const rankNum = i + 1
+                const medalColor =
+                  rankNum === 1 ? 'text-amber-400' :
+                  rankNum === 2 ? 'text-slate-400' :
+                  rankNum === 3 ? 'text-orange-400' : 'text-slate-300'
+                const rowBg = isMe ? 'bg-indigo-50' : 'bg-white'
+
+                return (
+                  <div key={entry.student_id} className={`flex items-center gap-4 px-6 py-3.5 ${rowBg} transition-colors`}>
+                    {/* Rank badge */}
+                    <div className="w-8 shrink-0 text-center">
+                      {rankNum <= 3
+                        ? <Medal className={`w-5 h-5 mx-auto ${medalColor}`} />
+                        : <span className="text-xs font-black text-slate-400">#{rankNum}</span>
+                      }
+                    </div>
+
+                    {/* Avatar + Name */}
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
+                        isMe ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {(entry.profiles?.full_name || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`font-bold text-sm truncate ${isMe ? 'text-indigo-700' : 'text-slate-700'}`}>
+                          {entry.profiles?.full_name || 'Unknown'}
+                          {isMe && <span className="ml-2 text-[9px] font-black bg-indigo-200 text-indigo-700 rounded-full px-2 py-0.5 uppercase tracking-wider">You</span>}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Score */}
+                    <div className="text-right shrink-0">
+                      <p className={`font-black text-base ${isMe ? 'text-indigo-700' : 'text-slate-700'}`}>
+                        {entry.score ?? '—'}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400">/ {quiz?.total_marks}</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* ── Action Buttons ── */}
         <div className="grid grid-cols-2 gap-3">
