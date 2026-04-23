@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // Auth & Layout
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
@@ -157,6 +158,9 @@ function App() {
           style: { borderRadius: '1rem', border: 'none', fontWeight: 'bold' }
         }}
       />
+      
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </BrowserRouter>
   )
 }
