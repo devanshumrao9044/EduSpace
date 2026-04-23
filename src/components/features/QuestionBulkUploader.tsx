@@ -18,27 +18,29 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
       try {
         const text = e.target?.result as string
         
-        // 🔥 WAHI JADOO WALA LOGIC JO TUMNE BHEJA THA 🔥
-        // Ye dhoondhega jahan marks (number) ke baad " shuru ho raha hai aur line break daal dega
+        // Jadoo wala logic
         const fixedText = text.replace(/(\d)"/g, '$1\n"') 
         
         const lines = fixedText.split('\n').filter(line => line.trim() !== '')
         const questions = []
 
-        // Pehli line header maan ke i=1 se loop start
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)
           
-          // Agar line mein 8 items nahi hain toh chhod dega
           if (!values || values.length < 8) continue
 
           const clean = (val: string) => val ? val.replace(/^"|"$/g, '').trim() : ''
 
+          // 🔥 YAHAN THA ERROR KA SOLUTION 🔥
+          // Type ko strictly lowercase karo. Agar kuch ajeeb ho toh 'mcq' default kardo
+          let rawType = clean(values[1]).toLowerCase()
+          let validTypes = ['mcq', 'integer', 'paragraph']
+          let finalType = validTypes.includes(rawType) ? rawType : 'mcq'
+
           questions.push({
             quiz_id: quizId,
             question_text: clean(values[0]),
-            question_type: clean(values[1]) || 'mcq',
-            // 🔥 COLUMNS KA SEQUENCE AB TUMHARE HISAB SE HAI 🔥
+            question_type: finalType, // 🔥 Ab DB reject nahi karega
             options: {
               A: clean(values[2]),
               B: clean(values[3]),
@@ -47,7 +49,7 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
             },
             correct_answer: clean(values[6]),
             marks: parseInt(clean(values[7])) || 1,
-            order_number: i + 100 // Taki naye questions neeche aayein
+            order_number: i + 100 
           })
         }
 
@@ -64,7 +66,6 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
         
       } catch (err: any) {
         console.error("Supabase Error: ", err)
-        // Ab exact error screen par dikhega (jaise: invalid input syntax for integer)
         toast.error(`Upload failed: ${err.message || 'Check format'}`)
       } finally {
         setUploading(false)
