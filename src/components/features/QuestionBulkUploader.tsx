@@ -7,6 +7,52 @@ import { Button } from '@/components/ui/button'
 export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) {
   const [uploading, setUploading] = useState(false)
 
+  // 🔥 CUSTOM ROBUST CSV PARSER 🔥
+  // Ye tooti hui lines aur andar ke inverted commas ko automatically theek karega
+  const parseCSV = (rawText: string) => {
+    // Step 1: Fix broken wrapped lines
+    const cleanedText = rawText.split(/\r?\n/).map(line => {
+      let trimmed = line.trim()
+      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        return trimmed.slice(1, -1).replace(/""/g, '"')
+      }
+      return trimmed
+    }).join('\n')
+
+    // Step 2: Advanced Parsing (Jo newlines ko samajhta hai)
+    const rows = []
+    let currentRow = []
+    let currentCell = ''
+    let inQuotes = false
+
+    for (let i = 0; i < cleanedText.length; i++) {
+      const char = cleanedText[i]
+      const nextChar = cleanedText[i + 1] || ''
+
+      if (char === '"' && inQuotes && nextChar === '"') {
+        currentCell += '"'
+        i++ // Skip extra quote
+      } else if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        currentRow.push(currentCell)
+        currentCell = ''
+      } else if (char === '\n' && !inQuotes) {
+        currentRow.push(currentCell)
+        rows.push(currentRow)
+        currentRow = []
+        currentCell = ''
+      } else {
+        currentCell += char
+      }
+    }
+    if (currentCell !== '' || currentRow.length > 0) {
+      currentRow.push(currentCell)
+      rows.push(currentRow)
+    }
+    return rows
+  }
+
   const handleFileUpload = async (event: any) => {
     const file = event.target.files[0]
     if (!file) return
@@ -17,38 +63,37 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string
-        
-        // Jadoo wala logic
-        const fixedText = text.replace(/(\d)"/g, '$1\n"') 
-        
-        const lines = fixedText.split('\n').filter(line => line.trim() !== '')
+        const rows = parseCSV(text)
         const questions = []
 
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)
+        // Har row ko check karega
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i]
           
-          if (!values || values.length < 8) continue
+          // Agar 8 columns nahi hain toh chhod dega (jaise toota hua header)
+          if (row.length < 8) continue
+          
+          // Agar pehli line (Header) aa gayi toh skip karega
+          if (row[0].toLowerCase().includes('question_text')) continue
 
-          const clean = (val: string) => val ? val.replace(/^"|"$/g, '').trim() : ''
+          const clean = (val: string) => val ? val.trim() : ''
 
-          // 🔥 YAHAN THA ERROR KA SOLUTION 🔥
-          // Type ko strictly lowercase karo. Agar kuch ajeeb ho toh 'mcq' default kardo
-          let rawType = clean(values[1]).toLowerCase()
-          let validTypes = ['mcq', 'integer', 'paragraph']
-          let finalType = validTypes.includes(rawType) ? rawType : 'mcq'
+          // Type constraint fix
+          let rawType = clean(row[1]).toLowerCase()
+          let finalType = ['mcq', 'integer', 'paragraph'].includes(rawType) ? rawType : 'mcq'
 
           questions.push({
             quiz_id: quizId,
-            question_text: clean(values[0]),
-            question_type: finalType, // 🔥 Ab DB reject nahi karega
+            question_text: clean(row[0]),
+            question_type: finalType,
             options: {
-              A: clean(values[2]),
-              B: clean(values[3]),
-              C: clean(values[4]),
-              D: clean(values[5]),
+              A: clean(row[2]),
+              B: clean(row[3]),
+              C: clean(row[4]),
+              D: clean(row[5]),
             },
-            correct_answer: clean(values[6]),
-            marks: parseInt(clean(values[7])) || 1,
+            correct_answer: clean(row[6]),
+            marks: parseInt(clean(row[7])) || 1,
             order_number: i + 100 
           })
         }
@@ -57,15 +102,15 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
           throw new Error("File empty hai ya format sahi match nahi hua.")
         }
 
-        // Database mein bhejo
+        // Database mein data bhejenge
         const { error } = await supabase.from('questions').insert(questions)
         if (error) throw error
 
-        toast.success(`${questions.length} Questions successfully added!`)
+        toast.success(`Success! Poore ${questions.length} questions add ho gaye!`)
         if (onUploadComplete) onUploadComplete()
         
       } catch (err: any) {
-        console.error("Supabase Error: ", err)
+        console.error("Upload Error: ", err)
         toast.error(`Upload failed: ${err.message || 'Check format'}`)
       } finally {
         setUploading(false)
@@ -82,10 +127,10 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
         accept=".csv" 
         onChange={handleFileUpload} 
         className="hidden" 
-        id="csv-upload-jaddu" 
+        id="csv-upload-pro" 
         disabled={uploading} 
       />
-      <label htmlFor="csv-upload-jaddu">
+      <label htmlFor="csv-upload-pro">
         <Button variant="outline" size="sm" asChild className="cursor-pointer border-dashed border-green-500 text-green-600 hover:bg-green-50">
           <span>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
