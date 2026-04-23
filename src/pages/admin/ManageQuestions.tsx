@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Trash2, Loader2, Pencil, X, ListChecks } from 'lucide-react'
+import { ArrowLeft, Trash2, Loader2, Pencil, X, ListChecks, Image as ImageIcon, UploadCloud } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,25 +9,27 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase } from '@/lib/supabase'
 import QuestionBulkUploader from '@/components/features/QuestionBulkUploader'
-import type { Question } from '@/types/database'
 
 export default function ManageQuestions() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [questions, setQuestions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [questionType, setQuestionType] = useState<'mcq' | 'integer' | 'paragraph'>('mcq')
   const [formData, setFormData] = useState({
     question_text: '',
+    image_url: '',
     optionA: '',
     optionB: '',
     optionC: '',
     optionD: '',
     correct_answer: '',
     marks: 1,
-    negative_marks: 0 // Default 0 as requested
+    negative_marks: 0
   })
 
   useEffect(() => {
@@ -53,12 +55,41 @@ export default function ManageQuestions() {
     }
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setIsUploadingImage(true)
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}_${Math.random()}.${fileExt}`
+      const filePath = `${quizId}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('quiz-images')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from('quiz-images').getPublicUrl(filePath)
+      
+      setFormData({ ...formData, image_url: data.publicUrl })
+      toast.success('Image successfully uploaded!')
+    } catch (error: any) {
+      console.error(error)
+      toast.error('Image upload failed. Bucket check karo.')
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
   const handleEdit = (q: any) => {
     setEditingId(q.id)
     setQuestionType(q.question_type as any)
     const opts = (q.options as any) || {}
     setFormData({
       question_text: q.question_text || '',
+      image_url: q.image_url || '',
       optionA: opts.A || '',
       optionB: opts.B || '',
       optionC: opts.C || '',
@@ -74,6 +105,7 @@ export default function ManageQuestions() {
     setEditingId(null)
     setFormData({
       question_text: '',
+      image_url: '',
       optionA: '',
       optionB: '',
       optionC: '',
@@ -82,12 +114,19 @@ export default function ManageQuestions() {
       marks: 1,
       negative_marks: 0
     })
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Required check: Ya toh question text ho ya image ho
+    if (!formData.question_text.trim() && !formData.image_url) {
+      toast.error("Bhai, ya toh question likho ya picture upload karo!")
+      return
+    }
     
-    // MCQ type ke liye strict check
+    // MCQ type ke liye strict check - in case empty submit ho
     let finalAnswer = formData.correct_answer
     if (questionType === 'mcq' && !['A', 'B', 'C', 'D'].includes(finalAnswer)) {
       toast.error("Please select a valid option (A, B, C, or D) for the correct answer.")
@@ -97,6 +136,7 @@ export default function ManageQuestions() {
     const payload = {
       quiz_id: quizId!,
       question_text: formData.question_text,
+      image_url: formData.image_url,
       question_type: questionType,
       correct_answer: finalAnswer,
       marks: formData.marks,
@@ -139,11 +179,12 @@ export default function ManageQuestions() {
     }
   }
 
+  // Handle Tab Change to reset answer logic safely
   const handleTypeChange = (value: 'mcq' | 'integer' | 'paragraph') => {
     setQuestionType(value)
     if (value === 'mcq') {
        if (!['A', 'B', 'C', 'D'].includes(formData.correct_answer)) {
-           setFormData({ ...formData, correct_answer: '' })
+           setFormData({ ...formData, correct_answer: '' }) // Reset if invalid for MCQ
        }
     } else {
        setFormData({ ...formData, correct_answer: '' })
@@ -190,12 +231,55 @@ export default function ManageQuestions() {
                   </TabsList>
                 </Tabs>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  
+                  {/* 🔥 IMAGE UPLOAD UI 🔥 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Question Image (Optional)</label>
+                      {formData.image_url && (
+                        <button type="button" onClick={() => setFormData({...formData, image_url: ''})} className="text-xs text-red-500 font-bold hover:underline">
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+                    
+                    {formData.image_url ? (
+                      <div className="relative rounded-xl border-2 border-dashed border-indigo-200 overflow-hidden bg-slate-50 flex justify-center p-2">
+                        <img 
+                          src={formData.image_url} 
+                          alt="Preview" 
+                          className="max-h-[300px] object-contain rounded-lg transition-transform hover:scale-[1.02] cursor-zoom-in"
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-24 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 hover:border-indigo-300 transition-all"
+                      >
+                        {isUploadingImage ? (
+                          <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                        ) : (
+                          <>
+                            <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
+                            <span className="text-xs font-bold text-slate-500">Click to upload question image</span>
+                          </>
+                        )}
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*" 
+                          onChange={handleImageUpload}
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <Textarea
-                    placeholder="Enter question text..."
+                    placeholder={formData.image_url ? "Type question text here (Optional)..." : "Enter question text..."}
                     className="min-h-[120px] text-lg font-medium rounded-xl"
                     value={formData.question_text}
                     onChange={e => setFormData({...formData, question_text: e.target.value})}
-                    required
                   />
                   {questionType === 'mcq' && (
                     <div className="grid grid-cols-2 gap-4">
@@ -205,6 +289,8 @@ export default function ManageQuestions() {
                       <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required/>
                     </div>
                   )}
+                  
+                  {/* Correct Answer, Marks, aur Negative Marks ka Grid */}
                   <div className="grid grid-cols-3 gap-4 items-end">
                     
                     <div className="space-y-1">
@@ -257,7 +343,8 @@ export default function ManageQuestions() {
                     </div>
 
                   </div>
-                  <Button type="submit" className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600' : 'bg-slate-900'}`}>
+                  
+                  <Button type="submit" disabled={isUploadingImage} className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600' : 'bg-slate-900'} disabled:opacity-50`}>
                     {editingId ? "SAVE CHANGES" : "ADD QUESTION"}
                   </Button>
                 </form>
@@ -280,12 +367,16 @@ export default function ManageQuestions() {
                     <div className="truncate flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</span>
+                        {/* Image Icon Indicator */}
+                        {q.image_url && <ImageIcon className="w-3 h-3 text-indigo-500" />}
                         <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{q.marks}</span>
                         {q.negative_marks > 0 && (
                           <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">-{q.negative_marks}</span>
                         )}
                       </div>
-                      <p className="font-bold truncate text-slate-700 text-sm">{q.question_text}</p>
+                      <p className="font-bold truncate text-slate-700 text-sm">
+                        {q.question_text ? q.question_text : <span className="italic text-slate-400">Image Based Question</span>}
+                      </p>
                     </div>
                     <div className="flex gap-1 ml-4">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-4 w-4" /></Button>
