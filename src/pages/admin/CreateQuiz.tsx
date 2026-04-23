@@ -41,13 +41,19 @@ export default function CreateQuiz() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validation
-    if (!formData.title.trim()) {
+    // 🔥 STEP 3: PREVENT DOUBLE SUBMISSION
+    if (loading) return 
+
+    // Validation & Sanitization
+    const cleanTitle = formData.title.trim()
+    const cleanDescription = formData.description.trim()
+
+    if (!cleanTitle) {
       toast.error('Please enter quiz title')
       return
     }
     
-    if (!formData.description.trim()) {
+    if (!cleanDescription) {
       toast.error('Please enter quiz description')
       return
     }
@@ -68,7 +74,6 @@ export default function CreateQuiz() {
     }
 
     setLoading(true)
-    console.log('Creating quiz:', formData)
 
     try {
       const user = await authService.getCurrentUser()
@@ -79,9 +84,10 @@ export default function CreateQuiz() {
         return
       }
 
-            // Convert Local Time to Proper ISO format for Supabase
       const formattedData = {
         ...formData,
+        title: cleanTitle,
+        description: cleanDescription,
         start_time: new Date(formData.start_time).toISOString(),
         end_time: new Date(formData.end_time).toISOString(),
         created_by: user.id
@@ -93,16 +99,16 @@ export default function CreateQuiz() {
         .select()
         .single()
 
-
       if (error) throw error
 
-      console.log('Quiz created:', data)
       toast.success('Quiz created successfully!')
       navigate(`/admin/quiz/${data.id}/questions`)
     } catch (error: any) {
       console.error('Error creating quiz:', error)
       toast.error(error.message || 'Failed to create quiz')
-      setLoading(false)
+      
+      // 🔥 STEP 3: COOLDOWN (Don't allow instant retry on error)
+      setTimeout(() => setLoading(false), 2000)
     }
   }
 
@@ -114,6 +120,7 @@ export default function CreateQuiz() {
             variant="ghost"
             size="sm"
             onClick={() => navigate('/admin/quizzes')}
+            disabled={loading}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Quizzes
@@ -128,7 +135,6 @@ export default function CreateQuiz() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
           <Card>
             <CardHeader>
               <CardTitle>Basic Information</CardTitle>
@@ -144,6 +150,7 @@ export default function CreateQuiz() {
                   onChange={handleChange}
                   placeholder="e.g., Mathematics Final Exam"
                   required
+                  disabled={loading}
                 />
               </div>
               
@@ -157,12 +164,12 @@ export default function CreateQuiz() {
                   placeholder="Provide detailed information about this quiz..."
                   rows={4}
                   required
+                  disabled={loading}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Quiz Configuration */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -183,6 +190,7 @@ export default function CreateQuiz() {
                     value={formData.duration_minutes}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                 </div>
                 
@@ -196,6 +204,7 @@ export default function CreateQuiz() {
                     value={formData.total_marks}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                 </div>
                 
@@ -209,13 +218,13 @@ export default function CreateQuiz() {
                     value={formData.passing_marks}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Schedule */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -235,6 +244,7 @@ export default function CreateQuiz() {
                     value={formData.start_time}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                 </div>
                 
@@ -247,13 +257,13 @@ export default function CreateQuiz() {
                     value={formData.end_time}
                     onChange={handleChange}
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Settings */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -274,6 +284,7 @@ export default function CreateQuiz() {
                   id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => handleSwitchChange('is_active', checked)}
+                  disabled={loading}
                 />
               </div>
               
@@ -288,17 +299,18 @@ export default function CreateQuiz() {
                   id="show_results_immediately"
                   checked={formData.show_results_immediately}
                   onCheckedChange={(checked) => handleSwitchChange('show_results_immediately', checked)}
+                  disabled={loading}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Submit Button */}
           <div className="flex justify-end gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate('/admin/quizzes')}
+              disabled={loading}
             >
               Cancel
             </Button>
