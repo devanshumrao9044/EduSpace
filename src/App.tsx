@@ -1,31 +1,42 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
+
+// Auth & Layout
+import ProtectedRoute from '@/components/layout/ProtectedRoute'
+
+// Public Pages
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import NotFound from '@/pages/NotFound'
+
+// Student Pages
 import StudentDashboard from '@/pages/StudentDashboard'
-import AdminDashboard from '@/pages/AdminDashboard'
-import QuizList from '@/pages/admin/QuizList'
-import CreateQuiz from '@/pages/admin/CreateQuiz'
-import ManageQuestions from '@/pages/admin/ManageQuestions'
-import QuizResults from '@/pages/admin/QuizResults'
-import Analytics from '@/pages/admin/Analytics'
+import StudentHistory from '@/pages/StudentHistory'
 import QuizDetail from '@/pages/QuizDetail'
 import QuizAttempt from '@/pages/QuizAttempt'
 import QuizResult from '@/pages/QuizResult'
-import NotFound from '@/pages/NotFound'
-import ProtectedRoute from '@/components/layout/ProtectedRoute'
+
+// Admin Pages
+import AdminDashboard from '@/pages/AdminDashboard'
+import QuizList from '@/pages/admin/QuizList'
+import CreateQuiz from '@/pages/admin/CreateQuiz'
 import EditQuiz from '@/pages/admin/EditQuiz'
-import StudentHistory from '@/pages/StudentHistory'
+import ManageQuestions from '@/pages/admin/ManageQuestions'
+import QuizResults from '@/pages/admin/QuizResults'
+import Analytics from '@/pages/admin/Analytics'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Default Redirect */}
         <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Public Routes - No Protection Needed */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         
-        {/* Student Routes */}
+        {/* --- STUDENT ROUTES (MATERIALHUB QUIZX CORE) --- */}
         <Route
           path="/dashboard"
           element={
@@ -75,7 +86,7 @@ function App() {
           }
         />
         
-        {/* Admin Routes */}
+        {/* --- ADMIN ROUTES (SECURE MANAGEMENT) --- */}
         <Route
           path="/admin/dashboard"
           element={
@@ -100,8 +111,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
-        {/* 👇 NAYA EDIT WALA ROUTE YAHAN HAI 👇 */}
         <Route
           path="/admin/quiz/:id/edit"
           element={
@@ -110,8 +119,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* 👆 YAHAN TAK 👆 */}
-
         <Route
           path="/admin/quiz/:quizId/questions"
           element={
@@ -137,9 +144,19 @@ function App() {
           }
         />
         
+        {/* 404 Catch-all */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Toaster position="top-right" richColors />
+
+      {/* Global Notifications */}
+      <Toaster 
+        position="top-right" 
+        richColors 
+        closeButton
+        toastOptions={{
+          style: { borderRadius: '1rem', border: 'none', fontWeight: 'bold' }
+        }}
+      />
     </BrowserRouter>
   )
 }
