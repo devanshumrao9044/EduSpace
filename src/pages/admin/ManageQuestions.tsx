@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X, ListChecks } from 'lucide-react'
+import { ArrowLeft, Trash2, Loader2, Pencil, X, ListChecks } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -83,11 +83,19 @@ export default function ManageQuestions() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // MCQ type ke liye strict check - in case empty submit ho
+    let finalAnswer = formData.correct_answer
+    if (questionType === 'mcq' && !['A', 'B', 'C', 'D'].includes(finalAnswer)) {
+      toast.error("Please select a valid option (A, B, C, or D) for the correct answer.")
+      return
+    }
+
     const payload = {
       quiz_id: quizId!,
       question_text: formData.question_text,
       question_type: questionType,
-      correct_answer: formData.correct_answer,
+      correct_answer: finalAnswer,
       marks: formData.marks,
       options: questionType === 'mcq' ? {
         A: formData.optionA,
@@ -127,6 +135,18 @@ export default function ManageQuestions() {
     }
   }
 
+  // Handle Tab Change to reset answer logic safely
+  const handleTypeChange = (value: 'mcq' | 'integer' | 'paragraph') => {
+    setQuestionType(value)
+    if (value === 'mcq') {
+       if (!['A', 'B', 'C', 'D'].includes(formData.correct_answer)) {
+           setFormData({ ...formData, correct_answer: '' }) // Reset if invalid for MCQ
+       }
+    } else {
+       setFormData({ ...formData, correct_answer: '' })
+    }
+  }
+
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-gray-50">
       <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -159,7 +179,7 @@ export default function ManageQuestions() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
-                <Tabs value={questionType} onValueChange={(v) => setQuestionType(v as any)} className="mb-6">
+                <Tabs value={questionType} onValueChange={(v) => handleTypeChange(v as any)} className="mb-6">
                   <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100">
                     <TabsTrigger value="mcq" className="font-bold">MCQ</TabsTrigger>
                     <TabsTrigger value="integer" className="font-bold">Integer</TabsTrigger>
@@ -182,21 +202,45 @@ export default function ManageQuestions() {
                       <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required/>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      placeholder="Correct Answer"
-                      value={formData.correct_answer}
-                      onChange={e => setFormData({...formData, correct_answer: e.target.value})}
-                      required
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Marks"
-                      value={formData.marks}
-                      onChange={e => setFormData({...formData, marks: parseInt(e.target.value) || 1})}
-                    />
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Correct Answer</label>
+                      {/* 🔥 FIXED CORRECT ANSWER FIELD 🔥 */}
+                      {questionType === 'mcq' ? (
+                        <select
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={formData.correct_answer}
+                          onChange={e => setFormData({...formData, correct_answer: e.target.value})}
+                          required
+                        >
+                          <option value="" disabled>Select Option</option>
+                          <option value="A">Option A</option>
+                          <option value="B">Option B</option>
+                          <option value="C">Option C</option>
+                          <option value="D">Option D</option>
+                        </select>
+                      ) : (
+                        <Input
+                          placeholder="Correct Answer"
+                          value={formData.correct_answer}
+                          onChange={e => setFormData({...formData, correct_answer: e.target.value})}
+                          required
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks</label>
+                       <Input
+                         type="number"
+                         placeholder="Marks"
+                         value={formData.marks}
+                         onChange={e => setFormData({...formData, marks: parseInt(e.target.value) || 1})}
+                       />
+                    </div>
                   </div>
-                  <Button type="submit" className={`w-full h-14 font-black text-lg ${editingId ? 'bg-indigo-600' : 'bg-slate-900'}`}>
+                  <Button type="submit" className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-slate-800'}`}>
                     {editingId ? "SAVE CHANGES" : "ADD QUESTION"}
                   </Button>
                 </form>
@@ -221,8 +265,8 @@ export default function ManageQuestions() {
                       <p className="font-bold truncate text-slate-700 text-sm">{q.question_text}</p>
                     </div>
                     <div className="flex gap-1 ml-4">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-8 w-8 text-indigo-600"><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-8 w-8 text-rose-500"><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-8 w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))
