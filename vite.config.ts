@@ -16,4 +16,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // 🔥 STEP 5: Production Hardening
+  build: {
+    minify: 'esbuild',
+    sourcemap: false, // Production mein source code hide rahega
+    chunkSizeWarningLimit: 1600,
+  },
+  esbuild: {
+    // Ye build bante waqt saare console logs aur debuggers ko uda dega
+    drop: ['console', 'debugger'], 
+  },
 });
