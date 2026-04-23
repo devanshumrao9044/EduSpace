@@ -15,7 +15,7 @@ export default function ManageQuestions() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
   
-  const [questions, setQuestions] = useState<Question[]>([])
+  const [questions, setQuestions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [questionType, setQuestionType] = useState<'mcq' | 'integer' | 'paragraph'>('mcq')
@@ -26,7 +26,8 @@ export default function ManageQuestions() {
     optionC: '',
     optionD: '',
     correct_answer: '',
-    marks: 1
+    marks: 1,
+    negative_marks: 0 // Default 0 as requested
   })
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function ManageQuestions() {
     }
   }
 
-  const handleEdit = (q: Question) => {
+  const handleEdit = (q: any) => {
     setEditingId(q.id)
     setQuestionType(q.question_type as any)
     const opts = (q.options as any) || {}
@@ -63,7 +64,8 @@ export default function ManageQuestions() {
       optionC: opts.C || '',
       optionD: opts.D || '',
       correct_answer: q.correct_answer || '',
-      marks: q.marks || 1
+      marks: q.marks || 1,
+      negative_marks: q.negative_marks || 0
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -77,14 +79,15 @@ export default function ManageQuestions() {
       optionC: '',
       optionD: '',
       correct_answer: '',
-      marks: 1
+      marks: 1,
+      negative_marks: 0
     })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // MCQ type ke liye strict check - in case empty submit ho
+    // MCQ type ke liye strict check
     let finalAnswer = formData.correct_answer
     if (questionType === 'mcq' && !['A', 'B', 'C', 'D'].includes(finalAnswer)) {
       toast.error("Please select a valid option (A, B, C, or D) for the correct answer.")
@@ -97,6 +100,7 @@ export default function ManageQuestions() {
       question_type: questionType,
       correct_answer: finalAnswer,
       marks: formData.marks,
+      negative_marks: formData.negative_marks,
       options: questionType === 'mcq' ? {
         A: formData.optionA,
         B: formData.optionB,
@@ -135,12 +139,11 @@ export default function ManageQuestions() {
     }
   }
 
-  // Handle Tab Change to reset answer logic safely
   const handleTypeChange = (value: 'mcq' | 'integer' | 'paragraph') => {
     setQuestionType(value)
     if (value === 'mcq') {
        if (!['A', 'B', 'C', 'D'].includes(formData.correct_answer)) {
-           setFormData({ ...formData, correct_answer: '' }) // Reset if invalid for MCQ
+           setFormData({ ...formData, correct_answer: '' })
        }
     } else {
        setFormData({ ...formData, correct_answer: '' })
@@ -202,11 +205,10 @@ export default function ManageQuestions() {
                       <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required/>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-4 items-end">
+                  <div className="grid grid-cols-3 gap-4 items-end">
                     
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Correct Answer</label>
-                      {/* 🔥 FIXED CORRECT ANSWER FIELD 🔥 */}
                       {questionType === 'mcq' ? (
                         <select
                           className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -231,16 +233,31 @@ export default function ManageQuestions() {
                     </div>
 
                     <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks</label>
+                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks (+)</label>
                        <Input
                          type="number"
                          placeholder="Marks"
                          value={formData.marks}
-                         onChange={e => setFormData({...formData, marks: parseInt(e.target.value) || 1})}
+                         onChange={e => setFormData({...formData, marks: parseFloat(e.target.value) || 1})}
+                         min={0}
+                         step="0.25"
                        />
                     </div>
+
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Negative (-)</label>
+                       <Input
+                         type="number"
+                         placeholder="Neg Marks"
+                         value={formData.negative_marks}
+                         onChange={e => setFormData({...formData, negative_marks: parseFloat(e.target.value) || 0})}
+                         min={0}
+                         step="0.25"
+                       />
+                    </div>
+
                   </div>
-                  <Button type="submit" className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-slate-800'}`}>
+                  <Button type="submit" className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600' : 'bg-slate-900'}`}>
                     {editingId ? "SAVE CHANGES" : "ADD QUESTION"}
                   </Button>
                 </form>
@@ -258,10 +275,16 @@ export default function ManageQuestions() {
               {(!questions || questions.length === 0) ? (
                 <div className="p-12 text-center text-slate-300 font-bold italic">Empty</div>
               ) : (
-                questions.map((q, i) => (
+                questions.map((q: any, i) => (
                   <div key={q.id} className="p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors">
                     <div className="truncate flex-1">
-                      <div className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</span>
+                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{q.marks}</span>
+                        {q.negative_marks > 0 && (
+                          <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">-{q.negative_marks}</span>
+                        )}
+                      </div>
                       <p className="font-bold truncate text-slate-700 text-sm">{q.question_text}</p>
                     </div>
                     <div className="flex gap-1 ml-4">
