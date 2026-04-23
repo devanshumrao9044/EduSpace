@@ -30,9 +30,12 @@ export default function QuizAttempt() {
   const init = async () => {
     try {
       const user = await authService.getCurrentUser()
-      if (!user) return navigate('/login')
+      if (!user) {
+        window.location.href = '/login'
+        return
+      }
 
-      // 1. Check if attempt already exists and is submitted
+      // 1. Database se check karo ki pehle se submitted toh nahi hai
       const { data: exAt } = await supabase
         .from('quiz_attempts')
         .select('*')
@@ -40,9 +43,9 @@ export default function QuizAttempt() {
         .eq('student_id', user.id)
         .maybeSingle()
 
-      // 🔥 CRITICAL FIX: Agar submitted_at null nahi hai, toh seedha bhago yahan se
+      // 🔥 AGGRESSIVE REDIRECT: Agar submitted_at hai toh seedha Result page 🔥
       if (exAt && exAt.submitted_at) {
-        navigate(`/quiz/${quizId}/result`)
+        window.location.href = `/quiz/${quizId}/result`
         return
       }
 
@@ -52,7 +55,7 @@ export default function QuizAttempt() {
         supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number')
       ])
 
-      if (!qRes.data || !qsRes.data) throw new Error("Data missing")
+      if (qRes.error || !qsRes.data) throw new Error("Load failed")
 
       setQuiz(qRes.data)
       setQuestions(qsRes.data)
@@ -61,7 +64,8 @@ export default function QuizAttempt() {
         setAttempt(exAt)
         setAnswers(exAt.answers || {})
         const elapsed = Math.floor((Date.now() - new Date(exAt.started_at).getTime()) / 1000)
-        setTimeLeft(Math.max(0, qRes.data.duration_minutes * 60 - elapsed))
+        const totalDuration = qRes.data.duration_minutes * 60
+        setTimeLeft(Math.max(0, totalDuration - elapsed))
       } else {
         const { data: nAt } = await supabase
           .from('quiz_attempts')
@@ -71,8 +75,8 @@ export default function QuizAttempt() {
         setTimeLeft(qRes.data.duration_minutes * 60)
       }
     } catch (err) { 
-      console.error(err)
-      toast.error('Error loading quiz') 
+      toast.error('Quiz access error')
+      navigate('/dashboard')
     } finally { 
       setLoading(false) 
     }
@@ -80,7 +84,7 @@ export default function QuizAttempt() {
 
   const handleSubmit = async (auto = false) => {
     if (submitting) return
-    if (!auto && !confirm('Submit quiz?')) return
+    if (!auto && !confirm('Are you sure you want to submit?')) return
     
     setSubmitting(true)
     let score = 0
@@ -104,16 +108,21 @@ export default function QuizAttempt() {
 
       if (error) throw error
       
-      // Submit ke baad state clear aur redirect
-      navigate(`/quiz/${quizId}/result`)
+      toast.success("Quiz Submitted Successfully!")
+      
+      // 🔥 HARD REDIRECT: window.location.href use kar rahe hain taaki panga na ho 🔥
+      setTimeout(() => {
+        window.location.href = `/quiz/${quizId}/result`
+      }, 500)
+
     } catch (err) {
-      toast.error("Submission failed. Try again.")
+      toast.error("Submit failed. Check internet connection.")
       setSubmitting(false)
     }
   }
 
   useEffect(() => {
-    if (loading || !attempt) return
+    if (loading || !attempt || submitting) return
     const timer = setInterval(() => {
       setTimeLeft(p => { 
         if (p <= 1) { 
@@ -125,36 +134,40 @@ export default function QuizAttempt() {
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [timeLeft, loading, attempt])
+  }, [timeLeft, loading, attempt, submitting])
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black animate-pulse text-indigo-600">LOADING QUIZ...</div>
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-slate-50 font-black italic text-indigo-600 animate-pulse">
+      SYNCING QUIZ DATA...
+    </div>
+  )
   
   const q = questions[currentQuestionIndex]
   const ans = answers[q?.id]?.answer
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-24 lg:pb-0">
-      <header className="bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-        <div>
-          <h1 className="font-bold truncate max-w-[150px] text-slate-800">{quiz?.title}</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase">Q{currentQuestionIndex+1}/{questions.length}</p>
+      <header className="bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50">
+        <div className="flex-1 min-w-0">
+          <h1 className="font-bold truncate text-slate-800">{quiz?.title}</h1>
+          <p className="text-[10px] font-black text-slate-400 uppercase">Progress: {currentQuestionIndex+1}/{questions.length}</p>
         </div>
         <div className={`px-4 py-2 rounded-xl font-mono font-bold ${timeLeft < 60 ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-indigo-50 text-indigo-600'}`}>
           {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,'0')}
         </div>
-        <Button onClick={()=>handleSubmit()} disabled={submitting} size="sm" className="bg-slate-900 rounded-xl">
-          {submitting ? '...' : 'Submit'}
+        <Button onClick={()=>handleSubmit()} disabled={submitting} size="sm" className="bg-slate-900 rounded-xl ml-3">
+          {submitting ? 'Wait' : 'Finish'}
         </Button>
       </header>
 
       <main className="flex-1 p-4 lg:max-w-4xl lg:mx-auto w-full">
         <Card className="rounded-[2.5rem] overflow-hidden shadow-xl border-none bg-white">
           <div className="p-6 border-b">
-            <Badge className="bg-indigo-600 mb-2 italic">QUESTION {currentQuestionIndex+1}</Badge>
+            <Badge className="bg-indigo-600 mb-2 italic">Q{currentQuestionIndex+1}</Badge>
             <p className="text-xl font-bold text-slate-800 leading-tight">{q?.question_text}</p>
             {q?.image_url && (
-              <div className="mt-4 border-2 border-slate-50 rounded-2xl overflow-hidden bg-slate-50 flex justify-center">
-                <img src={q.image_url} alt="Question" className="max-h-[300px] object-contain" />
+              <div className="mt-4 border-2 border-slate-50 rounded-2xl overflow-hidden bg-slate-50 flex justify-center p-2">
+                <img src={q.image_url} alt="Question" className="max-h-[350px] object-contain rounded-xl" />
               </div>
             )}
           </div>
@@ -166,7 +179,7 @@ export default function QuizAttempt() {
                   <div 
                     key={k} 
                     onClick={()=>setAnswers({...answers, [q.id]: {answer: k}})} 
-                    className={`p-4 border-2 rounded-2xl bg-white flex items-center gap-3 cursor-pointer transition-all ${ans === k ? 'border-indigo-600 ring-4 ring-indigo-50 shadow-sm' : 'border-slate-100 hover:border-slate-200'}`}
+                    className={`p-4 border-2 rounded-2xl bg-white flex items-center gap-3 cursor-pointer transition-all ${ans === k ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-slate-100'}`}
                   >
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs border-2 ${ans === k ? 'bg-indigo-600 border-indigo-600 text-white' : 'text-slate-300 border-slate-100'}`}>{k}</span>
                     <span className="font-bold text-slate-700">{v as string}</span>
@@ -176,17 +189,17 @@ export default function QuizAttempt() {
             ) : (
               <Input 
                 type="number" 
-                placeholder="Enter numeric answer" 
+                placeholder="Type numeric answer..." 
                 value={ans || ''} 
                 onChange={e => setAnswers({...answers, [q.id]: {answer: e.target.value}})} 
-                className="h-16 text-xl font-bold rounded-2xl border-2 border-slate-100 focus:border-indigo-600 focus:bg-white transition-all" 
+                className="h-16 text-xl font-bold rounded-2xl border-2 border-slate-100 focus:border-indigo-600" 
               />
             )}
           </div>
 
           <div className="p-6 flex justify-between bg-white border-t">
-            <Button variant="outline" className="rounded-xl font-bold px-6" onClick={()=>setCurrentQuestionIndex(p => Math.max(0, p-1))} disabled={currentQuestionIndex===0}>Prev</Button>
-            <Button className="rounded-xl font-bold px-8 bg-slate-900" onClick={()=>setCurrentQuestionIndex(p => Math.min(questions.length-1, p+1))} disabled={currentQuestionIndex===questions.length-1}>Next</Button>
+            <Button variant="outline" className="rounded-xl font-bold px-6 h-12" onClick={()=>setCurrentQuestionIndex(p => Math.max(0, p-1))} disabled={currentQuestionIndex===0}>Previous</Button>
+            <Button className="rounded-xl font-bold px-8 h-12 bg-slate-900" onClick={()=>setCurrentQuestionIndex(p => Math.min(questions.length-1, p+1))} disabled={currentQuestionIndex===questions.length-1}>Next Question</Button>
           </div>
         </Card>
       </main>
@@ -195,13 +208,13 @@ export default function QuizAttempt() {
         onClick={()=>setStatsOpen(true)} 
         className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-indigo-600 text-white px-8 py-3 rounded-full shadow-2xl font-black italic uppercase text-[10px] tracking-widest flex items-center gap-2 ring-4 ring-white"
       >
-        <BarChart2 size={16}/> Summary
+        <BarChart2 size={16}/> View Grid
       </button>
 
       {statsOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={()=>setStatsOpen(false)}>
           <div className="bg-white w-full rounded-t-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300" onClick={e=>e.stopPropagation()}>
-            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
+            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6" />
             <div className="grid grid-cols-5 gap-3 mb-8">
               {questions.map((item, i) => (
                 <button 
@@ -213,7 +226,7 @@ export default function QuizAttempt() {
                 </button>
               ))}
             </div>
-            <Button onClick={()=>handleSubmit()} className="w-full h-14 bg-slate-900 rounded-2xl font-black italic uppercase tracking-widest text-sm shadow-xl">Finish & Submit</Button>
+            <Button onClick={()=>handleSubmit()} className="w-full h-14 bg-slate-900 rounded-2xl font-black italic tracking-widest">Final Submit</Button>
           </div>
         </div>
       )}
