@@ -120,7 +120,30 @@ export default function QuizAttempt() {
 
       if (error) throw error
 
-      // Small delay to ensure DB write propagates before redirect
+      // ── Compute and persist ranks for all submitted attempts ──
+      const { data: allAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('id, score')
+        .eq('quiz_id', quizId)
+        .not('submitted_at', 'is', null)
+        .order('score', { ascending: false })
+
+      if (allAttempts && allAttempts.length > 0) {
+        let currentRank = 1
+        const rankUpdates = allAttempts.map((a, i) => {
+          if (i > 0 && (a.score ?? 0) !== (allAttempts[i - 1].score ?? 0)) {
+            currentRank = i + 1
+          }
+          return { id: a.id, rank: currentRank }
+        })
+        await Promise.all(
+          rankUpdates.map(u =>
+            supabase.from('quiz_attempts').update({ rank: u.rank }).eq('id', u.id)
+          )
+        )
+      }
+
+      // Small delay to ensure DB writes propagate before redirect
       await new Promise(res => setTimeout(res, 500))
       window.location.replace(`/quiz/${quizId}/result`)
     } catch {

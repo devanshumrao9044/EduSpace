@@ -175,13 +175,24 @@ export default function QuizResult() {
           <p className="font-black italic uppercase tracking-widest text-white/60 text-xs mb-2">{quiz?.title}</p>
           <h1 className="text-6xl font-black mb-1">{score}</h1>
           <p className="text-white/70 font-bold text-sm mb-4">out of {totalMarks} marks · {percentage}%</p>
-          <Badge className={`${passed ? 'bg-emerald-400 text-emerald-900' : 'bg-red-400 text-red-900'} font-black italic uppercase px-4 py-1 text-xs`}>
-            {passed ? '✓ Passed' : '✗ Failed'}
-          </Badge>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Badge className={`${passed ? 'bg-emerald-400 text-emerald-900' : 'bg-red-400 text-red-900'} font-black italic uppercase px-4 py-1 text-xs`}>
+              {passed ? '✓ Passed' : '✗ Failed'}
+            </Badge>
+            {attempt?.rank && (
+              <Badge className="bg-amber-400 text-amber-900 font-black italic uppercase px-4 py-1 text-xs">
+                🏅 Rank #{attempt.rank}
+              </Badge>
+            )}
+          </div>
           {attempt?.rank && (
-            <p className="mt-4 text-white/80 font-bold text-sm">
-              🏅 Rank #{attempt.rank}
-            </p>
+            <div className="mt-6 inline-flex flex-col items-center bg-white/10 border border-white/20 rounded-2xl px-8 py-4 backdrop-blur-sm">
+              <p className="text-white/60 font-bold uppercase tracking-widest text-[10px] mb-1">Your Rank</p>
+              <p className="text-5xl font-black text-white leading-none">#{attempt.rank}</p>
+              {leaderboard.length > 0 && (
+                <p className="text-white/50 font-bold text-xs mt-1">out of {leaderboard.length} students</p>
+              )}
+            </div>
           )}
         </div>
       </div>
