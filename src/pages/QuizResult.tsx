@@ -1,271 +1,339 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Clock, Flag, Send, AlertTriangle, CheckCircle, X, BarChart2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { CheckCircle, Trophy, Clock, X, ChevronLeft, ChevronRight, Loader2, Home, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
 import { authService } from '@/lib/auth'
-import type { Quiz, Question, QuizAttempt as AttemptType } from '@/types/database'
 
-interface Answer {
-  questionId: string
+interface AttemptAnswer {
   answer: string
   marked: boolean
 }
 
-export default function QuizAttempt() {
+export default function QuizResult() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
 
-  const [quiz, setQuiz] = useState<Quiz | null>(null)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [attempt, setAttempt] = useState<AttemptType | null>(null)
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, Answer>>({})
-  const [timeLeft, setTimeLeft] = useState(0)
+  const [quiz, setQuiz] = useState<any>(null)
+  const [questions, setQuestions] = useState<any[]>([])
+  const [attempt, setAttempt] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [warningCount, setWarningCount] = useState(0)
-  const [statsOpen, setStatsOpen] = useState(false)
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout>()
-
-  /* ─── Data Initialization ─────────────────── */
+  // Answer review modal state
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewIndex, setReviewIndex] = useState(0)
 
   useEffect(() => {
-    if (quizId) initializeAttempt()
+    if (quizId) loadResult()
   }, [quizId])
 
-  const initializeAttempt = async () => {
+  const loadResult = async () => {
     try {
       const user = await authService.getCurrentUser()
-      if (!user) { navigate('/login'); return }
+      if (!user) { window.location.replace('/login'); return }
 
-      const [quizRes, questionsRes] = await Promise.all([
+      const [quizRes, questionsRes, attemptRes] = await Promise.all([
         supabase.from('quizzes').select('*').eq('id', quizId).single(),
         supabase.from('questions').select('*').eq('quiz_id', quizId).order('order_number'),
+        supabase
+          .from('quiz_attempts').select('*')
+          .eq('quiz_id', quizId).eq('student_id', user.id)
+          .maybeSingle(),
       ])
+
       if (quizRes.error) throw quizRes.error
-      setQuiz(quizRes.data)
-      setQuestions(questionsRes.data || [])
 
-      const { data: existingAttempt } = await supabase
-        .from('quiz_attempts').select('*')
-        .eq('quiz_id', quizId).eq('student_id', user.id).maybeSingle()
-
-      if (existingAttempt?.submitted_at) {
-        navigate(`/quiz/${quizId}/result`)
+      // If no submitted attempt, redirect back to attempt page
+      if (!attemptRes.data?.submitted_at) {
+        window.location.replace(`/quiz/${quizId}`)
         return
       }
 
-      if (existingAttempt) {
-        setAttempt(existingAttempt)
-        setAnswers((existingAttempt.answers as Record<string, Answer>) || {})
-        const elapsed = Math.floor((Date.now() - new Date(existingAttempt.started_at).getTime()) / 1000)
-        setTimeLeft(Math.max(0, quizRes.data.duration_minutes * 60 - elapsed))
-        setWarningCount(existingAttempt.warning_count || 0)
-      } else {
-        const { data: newAttempt, error } = await supabase
-          .from('quiz_attempts')
-          .insert({ quiz_id: quizId!, student_id: user.id, answers: {} })
-          .select().single()
-        if (error) throw error
-        setAttempt(newAttempt)
-        setTimeLeft(quizRes.data.duration_minutes * 60)
-      }
-    } catch (error: any) {
-      toast.error('Failed to start quiz')
+      setQuiz(quizRes.data)
+      setQuestions(questionsRes.data || [])
+      setAttempt(attemptRes.data)
+    } catch {
+      toast.error('Failed to load result')
       navigate('/dashboard')
     } finally {
       setLoading(false)
     }
   }
 
-  const saveAnswers = async () => {
-    if (!attempt || attempt.submitted_at) return
-    await supabase.from('quiz_attempts').update({ answers, warning_count: warningCount }).eq('id', attempt.id)
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-900">
+        <Loader2 className="animate-spin text-indigo-400 w-8 h-8" />
+      </div>
+    )
   }
 
-  /* ─── Handlers ────────────────────────────── */
+  // ── GATE: show_results_immediately = false → Evaluation Pending screen ──
+  if (!quiz?.show_results_immediately) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md text-center">
+          {/* Success indicator */}
+          <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-4 border-emerald-500 flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
+            <CheckCircle className="w-12 h-12 text-emerald-400" />
+          </div>
 
-  const handleAnswerChange = (questionId: string, answer: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: { questionId, answer, marked: prev[questionId]?.marked || false },
-    }))
+          <h1 className="text-3xl font-black text-white mb-2 italic uppercase tracking-tight">
+            Test Submitted!
+          </h1>
+          <p className="text-slate-400 font-bold mb-8 text-sm">
+            Your responses have been recorded successfully.
+          </p>
+
+          {/* Pending card */}
+          <div className="bg-slate-800 border border-slate-700 rounded-[2rem] p-8 mb-8 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border-2 border-amber-500/50 flex items-center justify-center mx-auto mb-5">
+              <Clock className="w-7 h-7 text-amber-400" />
+            </div>
+            <h2 className="text-xl font-black text-white mb-2">Evaluation Pending</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Your answers are being reviewed by the administrator. Results, scores, and rankings will be published shortly.
+            </p>
+
+            <div className="mt-6 grid grid-cols-3 gap-3 text-center">
+              <div className="bg-slate-700/50 rounded-2xl p-3">
+                <p className="text-2xl font-black text-slate-200">{questions.length}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Questions</p>
+              </div>
+              <div className="bg-slate-700/50 rounded-2xl p-3">
+                <p className="text-2xl font-black text-slate-200">
+                  {Object.values((attempt?.answers || {}) as Record<string, AttemptAnswer>).filter(a => a?.answer).length}
+                </p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Attempted</p>
+              </div>
+              <div className="bg-slate-700/50 rounded-2xl p-3">
+                <p className="text-2xl font-black text-slate-200">{quiz?.duration_minutes}m</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Duration</p>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => navigate('/dashboard')}
+            className="w-full h-13 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-black italic uppercase tracking-widest text-sm shadow-xl"
+          >
+            <Home className="mr-2 w-4 h-4" /> Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    )
   }
 
-  const handleToggleMarked = (questionId: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: { questionId, answer: prev[questionId]?.answer || '', marked: !prev[questionId]?.marked },
-    }))
-  }
+  // ── FULL RESULTS: show_results_immediately = true ──
+  const answers = (attempt?.answers || {}) as Record<string, AttemptAnswer>
+  const score = attempt?.score ?? 0
+  const totalMarks = quiz?.total_marks ?? 0
+  const passingMarks = quiz?.passing_marks ?? 0
+  const passed = score >= passingMarks
+  const percentage = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0
 
-  const handleSubmit = async (isAuto = false) => {
-    if (!attempt || !quiz || submitting) return
-    if (!isAuto && !confirm('Submit test?')) return
-    
-    setSubmitting(true)
-    let totalScore = 0
-    questions.forEach(q => {
-      const ua = answers[q.id]?.answer?.trim().toUpperCase()
-      const ca = q.correct_answer?.trim().toUpperCase()
-      if (!ua) return
-      if (ua === ca) totalScore += q.marks
-      else if (q.negative_marks) totalScore -= q.negative_marks
-    })
+  const correct = questions.filter(q => {
+    const ua = answers[q.id]?.answer?.trim().toUpperCase()
+    return ua && ua === q.correct_answer?.trim().toUpperCase()
+  }).length
+  const wrong = questions.filter(q => {
+    const ua = answers[q.id]?.answer?.trim().toUpperCase()
+    return ua && ua !== q.correct_answer?.trim().toUpperCase()
+  }).length
+  const skipped = questions.length - correct - wrong
 
-    const { error } = await supabase.from('quiz_attempts').update({
-      submitted_at: new Date().toISOString(),
-      answers,
-      score: totalScore,
-      is_evaluated: true
-    }).eq('id', attempt.id)
-
-    if (error) {
-      toast.error('Submission failed')
-      setSubmitting(false)
-    } else {
-      navigate(`/quiz/${quizId}/result`)
-    }
-  }
-
-  /* ─── Effects ─────────────────────────────── */
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) { handleSubmit(true); return 0 }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [timeLeft])
-
-  useEffect(() => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(saveAnswers, 1000)
-  }, [answers, warningCount])
-
-  /* ─── UI Helpers ──────────────────────────── */
-
-  const formatTime = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
-  const attempted = Object.values(answers).filter(a => a.answer).length
-  const unattempted = questions.length - attempted
-
-  if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50 font-black italic animate-pulse text-indigo-600">PREPARING QUIZ...</div>
-
-  const currentQuestion = questions[currentQuestionIndex]
-  const currentAnswer = answers[currentQuestion?.id]
+  const reviewQuestion = questions[reviewIndex]
+  const reviewAnswer = answers[reviewQuestion?.id]
+  const isCorrect =
+    reviewAnswer?.answer?.trim().toUpperCase() === reviewQuestion?.correct_answer?.trim().toUpperCase()
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* HEADER */}
-      <header className="bg-white border-b sticky top-0 z-30 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-slate-800 truncate text-sm sm:text-base">{quiz?.title}</h1>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Q{currentQuestionIndex + 1} / {questions.length}</p>
-        </div>
-        
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-black text-sm ${timeLeft < 60 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-indigo-50 text-indigo-600'}`}>
-          <Clock className="w-4 h-4" /> {formatTime(timeLeft)}
-        </div>
+    <div className="min-h-screen bg-slate-50 pb-12">
 
-        <Button onClick={() => handleSubmit()} disabled={submitting} size="sm" className="ml-3 bg-slate-900 rounded-xl font-bold">
-          {submitting ? <Loader2 className="animate-spin w-4 h-4"/> : 'Submit'}
-        </Button>
-      </header>
-
-      {/* MAIN BODY */}
-      <div className="flex-1 flex max-w-screen-xl mx-auto w-full pb-28 lg:pb-0">
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
-          <Card className="border-none shadow-xl rounded-[2rem] overflow-hidden bg-white">
-            
-            <div className="p-6 lg:p-8 border-b">
-               <div className="flex justify-between items-start gap-4 mb-6">
-                 <div>
-                    <Badge className="bg-indigo-600 mb-2 italic px-3 py-0.5 font-black">QUESTION {currentQuestionIndex+1}</Badge>
-                    <p className="text-lg lg:text-xl font-bold text-slate-800 leading-tight">{currentQuestion.question_text}</p>
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <Switch checked={currentAnswer?.marked || false} onCheckedChange={() => handleToggleMarked(currentQuestion.id)} />
-                    <span className="text-[10px] font-black text-slate-400 mt-1 uppercase">Review</span>
-                 </div>
-               </div>
-
-               {/* 🔥 IMAGE FIX: Only show if URL exists 🔥 */}
-               {currentQuestion.image_url && (
-                 <div className="mb-6 rounded-2xl border-2 border-slate-50 overflow-hidden bg-white flex justify-center p-2 shadow-sm">
-                   <img src={currentQuestion.image_url} alt="Question content" className="max-h-[350px] w-auto object-contain cursor-zoom-in rounded-xl" onClick={() => window.open(currentQuestion.image_url, '_blank')} />
-                 </div>
-               )}
-            </div>
-
-            <div className="p-6 lg:p-8 bg-slate-50/30">
-               {currentQuestion.question_type === 'mcq' && (
-                 <RadioGroup value={currentAnswer?.answer || ''} onValueChange={val => handleAnswerChange(currentQuestion.id, val)} className="space-y-3">
-                   {Object.entries(currentQuestion.options || {}).map(([key, val]) => val && (
-                     <div key={key} onClick={() => handleAnswerChange(currentQuestion.id, key)} className={`flex items-center gap-4 p-4 border-2 rounded-2xl cursor-pointer bg-white transition-all ${currentAnswer?.answer === key ? 'border-indigo-600 ring-4 ring-indigo-50' : 'border-slate-100'}`}>
-                        <RadioGroupItem value={key} id={key} className="sr-only" />
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs border-2 ${currentAnswer?.answer === key ? 'bg-indigo-600 border-indigo-600 text-white' : 'text-slate-400 border-slate-100'}`}>{key}</span>
-                        <Label className="font-bold text-slate-700 flex-1 cursor-pointer">{val as string}</Label>
-                     </div>
-                   ))}
-                 </RadioGroup>
-               )}
-
-               {currentQuestion.question_type === 'integer' && (
-                 <Input type="number" placeholder="Enter numeric answer" value={currentAnswer?.answer || ''} onChange={e => handleAnswerChange(currentQuestion.id, e.target.value)} className="h-16 text-xl font-bold rounded-2xl border-2 border-slate-100 focus:border-indigo-600" />
-               )}
-            </div>
-
-            {/* NAV BUTTONS */}
-            <div className="p-6 flex justify-between bg-white border-t">
-               <Button variant="outline" className="rounded-xl font-bold px-6" onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev-1))} disabled={currentQuestionIndex === 0}><ChevronLeft className="mr-2 h-4 w-4"/> Prev</Button>
-               <Button className="rounded-xl font-bold px-8 bg-slate-900" onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length-1, prev+1))} disabled={currentQuestionIndex === questions.length-1}>Next <ChevronRight className="ml-2 h-4 w-4"/></Button>
-            </div>
-          </Card>
-        </main>
-
-        {/* DESKTOP SIDEBAR */}
-        <aside className="hidden lg:flex flex-col w-80 border-l bg-white p-6 overflow-y-auto">
-          <p className="font-black text-slate-800 mb-4 italic uppercase tracking-widest text-xs">Navigator</p>
-          <div className="grid grid-cols-5 gap-2">
-            {questions.map((q, i) => (
-              <button key={q.id} onClick={() => setCurrentQuestionIndex(i)} className={`h-10 rounded-lg text-xs font-black transition-all ${currentQuestionIndex === i ? 'ring-4 ring-indigo-100 bg-indigo-600 text-white' : answers[q.id]?.marked ? 'bg-amber-400 text-white' : answers[q.id]?.answer ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{i+1}</button>
-            ))}
+      {/* ── Score Hero ── */}
+      <div className={`${passed ? 'bg-gradient-to-br from-indigo-600 to-violet-700' : 'bg-gradient-to-br from-slate-700 to-slate-900'} text-white pt-16 pb-20 px-6 text-center`}>
+        <div className="max-w-md mx-auto">
+          <div className="w-20 h-20 rounded-full bg-white/20 border-4 border-white/40 flex items-center justify-center mx-auto mb-5">
+            {passed
+              ? <Trophy className="w-10 h-10 text-yellow-300" />
+              : <CheckCircle className="w-10 h-10 text-white/80" />}
           </div>
-        </aside>
+          <p className="font-black italic uppercase tracking-widest text-white/60 text-xs mb-2">{quiz?.title}</p>
+          <h1 className="text-6xl font-black mb-1">{score}</h1>
+          <p className="text-white/70 font-bold text-sm mb-4">out of {totalMarks} marks · {percentage}%</p>
+          <Badge className={`${passed ? 'bg-emerald-400 text-emerald-900' : 'bg-red-400 text-red-900'} font-black italic uppercase px-4 py-1 text-xs`}>
+            {passed ? '✓ Passed' : '✗ Failed'}
+          </Badge>
+          {attempt?.rank && (
+            <p className="mt-4 text-white/80 font-bold text-sm">
+              🏅 Rank #{attempt.rank}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* MOBILE STATS BUTTON (FIXED OVERLAP) */}
-      <button onClick={() => setStatsOpen(true)} className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-2xl font-black italic uppercase text-[10px] tracking-widest flex items-center gap-2 ring-4 ring-white">
-        <BarChart2 className="w-4 h-4"/> Summary ({attempted}/{questions.length})
-      </button>
+      {/* ── Stats Cards ── */}
+      <div className="max-w-xl mx-auto px-4 -mt-10">
+        <Card className="rounded-[2rem] shadow-2xl border-none p-6 bg-white mb-4">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-3xl font-black text-emerald-600">{correct}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mt-1">Correct</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-red-500">{wrong}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mt-1">Wrong</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-slate-400">{skipped}</p>
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mt-1">Skipped</p>
+            </div>
+          </div>
 
-      {/* STATS DRAWER (Mobile Only) */}
-      {statsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden flex items-end justify-center" onClick={() => setStatsOpen(false)}>
-           <div className="bg-white w-full rounded-t-[2.5rem] p-8 animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" />
-              <div className="grid grid-cols-5 gap-3 mb-8">
-                {questions.map((q, i) => (
-                  <button key={q.id} onClick={() => { setCurrentQuestionIndex(i); setStatsOpen(false); }} className={`h-12 rounded-xl text-xs font-black ${currentQuestionIndex === i ? 'bg-indigo-600 text-white' : answers[q.id]?.answer ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{i+1}</button>
-                ))}
+          {/* Progress bar */}
+          <div className="mt-6 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${passed ? 'bg-indigo-600' : 'bg-red-400'}`}
+              style={{ width: `${Math.min(100, percentage)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] font-bold text-slate-400 mt-1.5">
+            <span>0</span>
+            <span>Passing: {passingMarks}</span>
+            <span>{totalMarks}</span>
+          </div>
+        </Card>
+
+        {/* ── Action Buttons ── */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="rounded-2xl h-12 font-bold border-2"
+            onClick={() => navigate('/dashboard')}
+          >
+            <Home className="mr-2 w-4 h-4" /> Dashboard
+          </Button>
+          <Button
+            className="rounded-2xl h-12 bg-indigo-600 font-bold"
+            onClick={() => { setReviewIndex(0); setReviewOpen(true) }}
+          >
+            Review Answers
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Answer Review Modal ── */}
+      {reviewOpen && reviewQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end lg:items-center justify-center p-0 lg:p-6">
+          <div className="bg-white w-full lg:max-w-2xl rounded-t-[2.5rem] lg:rounded-[2rem] max-h-[90vh] overflow-y-auto shadow-2xl">
+
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center rounded-t-[2.5rem] lg:rounded-t-[2rem] z-10">
+              <div>
+                <p className="font-black text-slate-800 text-sm">Answer Review</p>
+                <p className="text-[10px] text-slate-400 font-bold">Q{reviewIndex + 1} of {questions.length}</p>
               </div>
-              <Button onClick={() => handleSubmit()} className="w-full h-14 bg-slate-900 rounded-2xl font-black italic uppercase tracking-widest text-sm">Finish & Submit</Button>
-           </div>
+              <button onClick={() => setReviewOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Correct/Wrong badge */}
+              <Badge className={`mb-4 font-black italic ${isCorrect ? 'bg-emerald-100 text-emerald-700' : reviewAnswer?.answer ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                {isCorrect ? '✓ Correct' : reviewAnswer?.answer ? '✗ Wrong' : '— Skipped'}
+              </Badge>
+
+              <p className="text-base font-bold text-slate-800 leading-snug mb-4">{reviewQuestion.question_text}</p>
+
+              {/* Question image */}
+              {reviewQuestion.image_url && typeof reviewQuestion.image_url === 'string' && reviewQuestion.image_url.trim() !== '' && (
+                <div className="mb-4 rounded-2xl border overflow-hidden bg-slate-50 flex justify-center p-2">
+                  <img
+                    src={reviewQuestion.image_url}
+                    alt="Question visual"
+                    className="max-h-[200px] w-auto object-contain rounded-xl"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              )}
+
+              {/* Options */}
+              {reviewQuestion.question_type === 'mcq' && (
+                <div className="space-y-2 mb-4">
+                  {Object.entries(reviewQuestion.options || {}).map(([key, val]) => {
+                    const isCorrectOpt = key === reviewQuestion.correct_answer?.trim().toUpperCase()
+                    const isSelected = reviewAnswer?.answer?.trim().toUpperCase() === key
+                    return val ? (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${
+                          isCorrectOpt
+                            ? 'border-emerald-400 bg-emerald-50'
+                            : isSelected
+                            ? 'border-red-400 bg-red-50'
+                            : 'border-slate-100 bg-white'
+                        }`}
+                      >
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs border-2 shrink-0 ${
+                          isCorrectOpt ? 'bg-emerald-500 border-emerald-500 text-white' : isSelected ? 'bg-red-500 border-red-500 text-white' : 'border-slate-200 text-slate-400'
+                        }`}>{key}</span>
+                        <span className="font-bold text-slate-700 text-sm">{val as string}</span>
+                        {isCorrectOpt && <span className="ml-auto text-[10px] font-black text-emerald-600 uppercase">Correct</span>}
+                        {isSelected && !isCorrectOpt && <span className="ml-auto text-[10px] font-black text-red-600 uppercase">Your Answer</span>}
+                      </div>
+                    ) : null
+                  })}
+                </div>
+              )}
+
+              {/* Integer answer */}
+              {reviewQuestion.question_type === 'integer' && (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-slate-50 rounded-2xl p-4 text-center">
+                    <p className="text-xs font-black text-slate-400 uppercase mb-1">Your Answer</p>
+                    <p className={`text-xl font-black ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {reviewAnswer?.answer || '—'}
+                    </p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-2xl p-4 text-center">
+                    <p className="text-xs font-black text-slate-400 uppercase mb-1">Correct Answer</p>
+                    <p className="text-xl font-black text-emerald-600">{reviewQuestion.correct_answer}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Marks info */}
+              <div className="flex gap-3 text-[11px] font-bold text-slate-400">
+                <span>+{reviewQuestion.marks} marks</span>
+                {reviewQuestion.negative_marks > 0 && <span className="text-red-400">−{reviewQuestion.negative_marks} negative</span>}
+              </div>
+            </div>
+
+            {/* Modal Nav */}
+            <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl font-bold"
+                onClick={() => setReviewIndex(p => Math.max(0, p - 1))}
+                disabled={reviewIndex === 0}
+              >
+                <ChevronLeft className="mr-1 w-4 h-4" /> Prev
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-slate-900 font-bold"
+                onClick={() => setReviewIndex(p => Math.min(questions.length - 1, p + 1))}
+                disabled={reviewIndex === questions.length - 1}
+              >
+                Next <ChevronRight className="ml-1 w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
 }
-
