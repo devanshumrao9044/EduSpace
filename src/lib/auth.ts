@@ -72,7 +72,19 @@ export const authService = {
       throw new Error('Registration failed')
     }
 
-    // Fetch the newly created profile
+    // 🔥 SMART FIX: Agar session null hai (matlab email verify karna baki hai)
+    // Toh profile fetch mat karo, seedha UI ko aage badha do
+    if (!data.session) {
+      console.log('Registration successful, waiting for email verification')
+      return {
+        id: data.user.id,
+        email: data.user.email || email,
+        full_name: fullName,
+        role: 'student'
+      }
+    }
+
+    // Agar Email Verification OFF hai, tab profile fetch chalega
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
