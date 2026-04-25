@@ -19,6 +19,10 @@ export const authService = {
 
     if (error) {
       console.error('Login error:', error)
+      // 🔥 CUSTOM ERROR MESSAGE: Clean and Secure 🔥
+      if (error.message === 'Invalid login credentials') {
+        throw new Error('User not found or incorrect password')
+      }
       throw new Error(error.message)
     }
 
