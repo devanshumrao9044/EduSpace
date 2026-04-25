@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
+import { supabase } from '@/lib/supabase' // ⚠️ DHYAN DENA: Ye import apne project ke hisab se check kar lena
 
 // Auth & Layout
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
@@ -26,15 +28,55 @@ import QuizResults from '@/pages/admin/QuizResults'
 import Analytics from '@/pages/admin/Analytics'
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState(true)
+  const [session, setSession] = useState<any>(null)
+
+  useEffect(() => {
+    // 1. App start hote hi current session check karo
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setIsInitializing(false) // Supabase ne apna kaam kar liya
+    })
+
+    // 2. Ye listener URL mein chhupe token ko pakdega jab bacha email link click karega
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session)
+      
+      if (event === 'SIGNED_IN') {
+        console.log('✅ Email Verified & Signed In!')
+      }
+    })
+
+    // Cleanup function
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [])
+
+  // Jab tak Supabase URL se token verify kar raha hai, tab tak app ko wait karwao
+  // Isse React Router tumhare URL wale token ko delete nahi kar payega
+  if (isInitializing) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="animate-pulse text-lg font-semibold text-indigo-600">Loading Rankify...</div>
+      </div>
+    )
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default Redirect */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Smart Default Redirect: Agar login hai toh dashboard, nahi toh login page */}
+        <Route 
+          path="/" 
+          element={
+            session ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+          } 
+        />
 
         {/* Public Routes - No Protection Needed */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+        <Route path="/register" element={session ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
         
         {/* --- STUDENT ROUTES (MATERIALHUB QUIZX CORE) --- */}
         <Route
