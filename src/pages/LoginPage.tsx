@@ -61,7 +61,7 @@ export default function LoginPage() {
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
               <BookOpen className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground">EduSpace</h1>
+            <h1 className="text-3xl font-bold text-foreground">Rankify</h1>
           </div>
           
           <div className="space-y-4">
@@ -114,7 +114,7 @@ export default function LoginPage() {
                 <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                   <BookOpen className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold">EduSpace</span>
+                <span className="text-2xl font-bold">Rankify</span>
               </div>
               <CardTitle className="text-2xl font-bold">Sign in to your account</CardTitle>
               <CardDescription>
