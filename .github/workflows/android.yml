@@ -31,13 +31,13 @@ jobs:
 
       - name: Setup Capacitor
         run: |
-          # Capacitor CLI aur Android platform ko install karna
+          # Capacitor CLI aur platforms install karna
           npm install @capacitor/cli @capacitor/core @capacitor/android
           
           # Agar config file nahi hai toh naya project init karo
           # NOTE: Agar tumhara build folder 'build' naam ka hai toh niche 'dist' ko 'build' kar dena
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            npx cap init Rankify com.materialhub.app --web-dir dist --confirm
+            npx cap init Rankify com.materialhub.app --web-dir dist
           fi
           
           # Android folder add karo agar pehle se nahi hai
