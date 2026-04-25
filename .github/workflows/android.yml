@@ -31,9 +31,19 @@ jobs:
 
       - name: Setup Capacitor
         run: |
-          # Agar capacitor.config.json nahi hai, toh ye use create karega
-          npx cap init Rankify com.materialhub.app --web-dir dist
-          npx cap add android
+          # Capacitor CLI aur Android platform ko install karna
+          npm install @capacitor/cli @capacitor/core @capacitor/android
+          
+          # Agar config file nahi hai toh naya project init karo
+          # NOTE: Agar tumhara build folder 'build' naam ka hai toh niche 'dist' ko 'build' kar dena
+          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+            npx cap init Rankify com.materialhub.app --web-dir dist --confirm
+          fi
+          
+          # Android folder add karo agar pehle se nahi hai
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -41,10 +51,12 @@ jobs:
       - name: Build Android APK (Debug)
         run: |
           cd android
+          # Gradle ko executable permission dena
+          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-App
+          name: Rankify-App-Package
           path: android/app/build/outputs/apk/debug/app-debug.apk
