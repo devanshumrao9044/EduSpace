@@ -54,7 +54,7 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">Verify Email</CardTitle>
             <CardDescription className="font-bold text-slate-400 uppercase text-[10px] tracking-[0.2em] mt-2">
-              MATERIALHUB QUIZX Safety Protocol
+              MATERIALHUB RANKIFY Safety Protocol
             </CardDescription>
             <p className="mt-6 text-slate-600 font-medium leading-relaxed">
               Humne ek verification link aapke email par bheja hai. Use click karne ke baad hi aap **MATERIALHUB QUIZX** access kar payenge.
