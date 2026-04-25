@@ -82,7 +82,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <h1 className="text-4xl font-black italic text-slate-900 uppercase tracking-tighter leading-none">MATERIALHUB</h1>
-              <span className="text-indigo-600 font-black italic uppercase tracking-[0.3em] text-xs">QUIZX PLATFORM</span>
+              <span className="text-indigo-600 font-black italic uppercase tracking-[0.3em] text-xs">RANKIFY PLATFORM</span>
             </div>
           </div>
           
@@ -92,7 +92,7 @@ export default function RegisterPage() {
               <span className="text-indigo-600">Learning Game.</span>
             </h2>
             <p className="text-lg text-slate-500 font-bold uppercase tracking-tight max-w-md">
-              Join the elite community of learners on MATERIALHUB QUIZX. Fast, Secure, and Built for Success.
+              Join the elite community of learners on MATERIALHUB. Fast, Secure, and Built for Success.
             </p>
           </div>
 
@@ -112,7 +112,7 @@ export default function RegisterPage() {
               </div>
             </div>
             <p className="text-slate-600 font-bold italic leading-relaxed relative z-10">
-              "MATERIALHUB QUIZX is a game changer. The interface is clean and the verification system makes it super secure."
+              "Rankify is a game changer. The interface is clean and the verification system makes it super secure."
             </p>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function RegisterPage() {
                 <Button type="submit" className="w-full h-16 bg-slate-900 hover:bg-indigo-600 text-white rounded-2xl font-black italic uppercase tracking-widest transition-all shadow-xl shadow-slate-200 mt-4 group" disabled={isLoading}>
                   {isLoading ? "HUB IS PROCESSING..." : (
                     <span className="flex items-center gap-2">
-                      Initialize Account <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      Sign Up <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </span>
                   )}
                 </Button>
