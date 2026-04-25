@@ -12,10 +12,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java 21 # Yahan humne version 17 se 21 kar diya hai
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Set up Node.js
@@ -35,8 +35,8 @@ jobs:
           npm install @capacitor/cli @capacitor/core @capacitor/android
           
           # Agar config file nahi hai toh naya project init karo
-          # NOTE: Agar tumhara build folder 'build' naam ka hai toh niche 'dist' ko 'build' kar dena
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+            # NOTE: Agar tumhara build folder 'build' hai toh 'dist' ko 'build' kar dena
             npx cap init Rankify com.materialhub.app --web-dir dist
           fi
           
