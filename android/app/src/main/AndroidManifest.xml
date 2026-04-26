@@ -4,7 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     
@@ -18,9 +19,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
-        android:usesCleartextTraffic="true">
-
-        <activity
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"> <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:name="com.materialhub.app.MainActivity"
             android:label="@string/title_activity_main"
@@ -34,3 +34,4 @@
         </activity>
     </application>
 </manifest>
+
