@@ -12,7 +12,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 🚨 SABSE BADA FIX YAHAN HAI: Java 17 use karna hai, 21 nahi! 🚨
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -51,15 +50,20 @@ jobs:
           cp logo.png assets/splash.png || true
           npx @capacitor/assets generate --android || true
 
-      - name: 🔨 Final Android Build
+      - name: 🔨 Build Android APK (The Ultimate Gradle Upgrade Fix)
         run: |
           cd android
+          
+          # 🚨 SABSE BADA FIX YAHI HAI 🚨
+          # Hum Capacitor ke default Gradle 8.2.1 ko 8.7 se replace kar rahe hain
+          sed -i 's/gradle-8.2.1-all.zip/gradle-8.7-all.zip/g' gradle/wrapper/gradle-wrapper.properties
+          
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
           
-          # Ab bina kisi error ke makkhan chalega
-          ./gradlew assembleDebug
+          # Clean aur Build ek saath
+          ./gradlew clean assembleDebug --no-daemon
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
