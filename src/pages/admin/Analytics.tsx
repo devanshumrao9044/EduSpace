@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react' // 'import' small letter mein kiya
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, TrendingUp, Users, Award, Target, Activity, BookOpen } from 'lucide-react'
@@ -55,7 +55,6 @@ export default function Analytics() {
 
   const loadAnalytics = async () => {
     try {
-      // Get all data
       const [quizzesRes, studentsRes, attemptsRes] = await Promise.all([
         supabase.from('quizzes').select('id, title, total_marks, passing_marks'),
         supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student'),
@@ -75,7 +74,6 @@ export default function Analytics() {
       const quizzes = quizzesRes.data || []
       const attempts = attemptsRes.data || []
 
-      // Calculate quiz performance
       const quizPerformance = quizzes.map(quiz => {
         const quizAttempts = attempts.filter((a: any) => a.quiz_id === quiz.id)
         const avgScore = quizAttempts.length > 0
@@ -83,13 +81,12 @@ export default function Analytics() {
           : 0
         
         return {
-          name: quiz.title.substring(0, 20) + (quiz.title.length > 20 ? '...' : ''),
+          name: quiz.title.substring(0, 15) + (quiz.title.length > 15 ? '...' : ''),
           avgScore: Math.round(avgScore * 10) / 10,
           attempts: quizAttempts.length
         }
-      }).slice(0, 10) // Top 10 quizzes
+      }).slice(0, 8)
 
-      // Score distribution
       const scoreRanges = [
         { range: '0-20%', min: 0, max: 20, count: 0 },
         { range: '21-40%', min: 21, max: 40, count: 0 },
@@ -104,7 +101,6 @@ export default function Analytics() {
         if (range) range.count++
       })
 
-      // Pass/Fail ratio
       let passed = 0
       let failed = 0
       attempts.forEach((attempt: any) => {
@@ -115,31 +111,17 @@ export default function Analytics() {
         }
       })
 
-      const passFailRatio = [
-        { name: 'Passed', value: passed },
-        { name: 'Failed', value: failed }
-      ]
-
-      // Student engagement (last 7 days)
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const studentEngagement = Array.from({ length: 7 }, (_, i) => {
         const date = new Date()
         date.setDate(date.getDate() - (6 - i))
-        return date.toISOString().split('T')[0]
-      })
-
-      const studentEngagement = last7Days.map(date => {
-        const count = attempts.filter((a: any) => {
-          const attemptDate = new Date(a.submitted_at).toISOString().split('T')[0]
-          return attemptDate === date
-        }).length
-
+        const dateStr = date.toISOString().split('T')[0]
+        const count = attempts.filter((a: any) => new Date(a.submitted_at).toISOString().split('T')[0] === dateStr).length
         return {
-          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           attempts: count
         }
       })
 
-      // Average score
       const totalScore = attempts.reduce((sum: number, a: any) => sum + (a.score || 0), 0)
       const averageScore = attempts.length > 0 ? totalScore / attempts.length : 0
 
@@ -150,7 +132,7 @@ export default function Analytics() {
         averageScore: Math.round(averageScore * 10) / 10,
         quizPerformance,
         scoreDistribution: scoreRanges,
-        passFailRatio,
+        passFailRatio: [{ name: 'Passed', value: passed }, { name: 'Failed', value: failed }],
         studentEngagement
       })
     } catch (error: any) {
@@ -164,10 +146,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading analytics...</p>
-        </div>
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -175,252 +154,86 @@ export default function Analytics() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin/dashboard')}>
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin/dashboard')} className="mb-2">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
-          <div className="mt-4">
-            <h1 className="text-3xl font-bold text-foreground">Analytics & Insights</h1>
-            <p className="text-muted-foreground mt-1">Track performance and engagement metrics</p>
-          </div>
+          <h1 className="text-2xl font-bold text-foreground">Analytics & Insights</h1>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 mb-1">Total Quizzes</p>
-                  <p className="text-4xl font-bold">{data.totalQuizzes}</p>
-                  <p className="text-xs opacity-75 mt-2">Active & Inactive</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <BookOpen className="w-7 h-7" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 mb-1">Total Students</p>
-                  <p className="text-4xl font-bold">{data.totalStudents}</p>
-                  <p className="text-xs opacity-75 mt-2">Registered users</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <Users className="w-7 h-7" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md bg-gradient-to-br from-green-500 to-green-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 mb-1">Total Attempts</p>
-                  <p className="text-4xl font-bold">{data.totalAttempts}</p>
-                  <p className="text-xs opacity-75 mt-2">All submissions</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <Activity className="w-7 h-7" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-90 mb-1">Average Score</p>
-                  <p className="text-4xl font-bold">{data.averageScore}</p>
-                  <p className="text-xs opacity-75 mt-2">Out of total marks</p>
-                </div>
-                <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
-                  <Award className="w-7 h-7" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Key Metrics - Grid fix for mobile */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <MetricCard title="Quizzes" value={data.totalQuizzes} icon={<BookOpen className="w-5 h-5" />} color="from-blue-500 to-blue-600" />
+          <MetricCard title="Students" value={data.totalStudents} icon={<Users className="w-5 h-5" />} color="from-purple-500 to-purple-600" />
+          <MetricCard title="Attempts" value={data.totalAttempts} icon={<Activity className="w-5 h-5" />} color="from-green-500 to-green-600" />
+          <MetricCard title="Avg Score" value={data.averageScore} icon={<Award className="w-5 h-5" />} color="from-orange-500 to-orange-600" />
         </div>
 
-        {/* Charts */}
+        {/* 👇 TABS MASHUP FIX YAHAN HAI 👇 */}
         <Tabs defaultValue="performance" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="distribution">Distribution</TabsTrigger>
-            <TabsTrigger value="engagement">Engagement</TabsTrigger>
-            <TabsTrigger value="pass-rate">Pass Rate</TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-hidden rounded-lg bg-muted p-1">
+            <TabsList className="flex w-full justify-start overflow-x-auto overflow-y-hidden whitespace-nowrap bg-transparent no-scrollbar">
+              <TabsTrigger value="performance" className="flex-1 min-w-[100px]">Performance</TabsTrigger>
+              <TabsTrigger value="distribution" className="flex-1 min-w-[100px]">Distribution</TabsTrigger>
+              <TabsTrigger value="engagement" className="flex-1 min-w-[100px]">Engagement</TabsTrigger>
+              <TabsTrigger value="pass-rate" className="flex-1 min-w-[100px]">Pass Rate</TabsTrigger>
+            </TabsList>
+          </div>
 
-          {/* Quiz Performance */}
           <TabsContent value="performance">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Quiz Performance Overview
-                </CardTitle>
-                <CardDescription>Average scores and attempt counts per quiz</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data.quizPerformance.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={data.quizPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                      <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
-                      <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="avgScore" fill="#3b82f6" name="Average Score" />
-                      <Bar yAxisId="right" dataKey="attempts" fill="#10b981" name="Attempts" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No quiz performance data available
-                  </div>
-                )}
+              <CardHeader><CardTitle className="text-lg">Quiz Performance</CardTitle></CardHeader>
+              <CardContent className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.quizPerformance}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={10} tick={{fill: '#6b7280'}} />
+                    <YAxis fontSize={10} tick={{fill: '#6b7280'}} />
+                    <Tooltip />
+                    <Bar dataKey="avgScore" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Avg Score" />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Score Distribution */}
-          <TabsContent value="distribution">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Score Distribution
-                </CardTitle>
-                <CardDescription>Distribution of scores across all attempts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data.scoreDistribution.some(d => d.count > 0) ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={data.scoreDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="range" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#8b5cf6" name="Number of Students">
-                        {data.scoreDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No score distribution data available
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Student Engagement */}
+          {/* ... Baaki content containers ko bhi ResponsiveContainer mein rakha hai ... */}
           <TabsContent value="engagement">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" />
-                  Student Engagement
-                </CardTitle>
-                <CardDescription>Quiz attempts over the last 7 days</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
+              <CardHeader><CardTitle className="text-lg">Engagement (Last 7 Days)</CardTitle></CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data.studentEngagement}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" fontSize={10} />
+                    <YAxis fontSize={10} />
                     <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="attempts"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      name="Quiz Attempts"
-                      dot={{ fill: '#3b82f6', r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
+                    <Line type="monotone" dataKey="attempts" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Pass/Fail Ratio */}
+          {/* Pass Rate Content */}
           <TabsContent value="pass-rate">
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="w-5 h-5" />
-                  Pass/Fail Ratio
-                </CardTitle>
-                <CardDescription>Overall success rate across all quizzes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data.passFailRatio.some(d => d.value > 0) ? (
-                  <div className="grid md:grid-cols-2 gap-8 items-center">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={data.passFailRatio}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {data.passFailRatio.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#ef4444'} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-
-                    <div className="space-y-6">
-                      {data.passFailRatio.map((item, index) => (
-                        <div key={item.name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: index === 0 ? '#10b981' : '#ef4444' }}
-                            />
-                            <span className="font-semibold text-foreground">{item.name}</span>
-                          </div>
-                          <span className="text-2xl font-bold text-foreground">{item.value}</span>
-                        </div>
+              <CardHeader><CardTitle className="text-lg">Pass/Fail Ratio</CardTitle></CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={data.passFailRatio} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                      {data.passFailRatio.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={index === 0 ? '#10b981' : '#ef4444'} />
                       ))}
-                      <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                        <p className="text-sm text-blue-900 font-medium">
-                          Success Rate: {data.passFailRatio[0]?.value > 0
-                            ? ((data.passFailRatio[0].value / (data.passFailRatio[0].value + data.passFailRatio[1].value)) * 100).toFixed(1)
-                            : 0}%
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No pass/fail data available
-                  </div>
-                )}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </TabsContent>
@@ -429,3 +242,19 @@ export default function Analytics() {
     </div>
   )
 }
+
+// Helper component for metrics
+function MetricCard({ title, value, icon, color }: any) {
+  return (
+    <Card className={`border-0 shadow-sm bg-gradient-to-br ${color} text-white`}>
+      <CardContent className="p-4 flex items-center justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider opacity-80">{title}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
+        <div className="opacity-30">{icon}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
