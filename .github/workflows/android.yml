@@ -21,18 +21,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 📦 Install & Build
+      - name: 📦 Install & Build React
         run: |
           npm install --legacy-peer-deps
           npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install @capacitor/assets -g
           npm run build
 
-      - name: 🛠️ Capacitor Sync & Folder Repair
+      - name: 🛠️ Capacitor Sync
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
-          
-          # Force refresh android folder
+          # Folder refresh
           rm -rf android
           if [ ! -f "capacitor.config.json" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
@@ -40,39 +39,48 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: 🚀 LOGO GENERATION
+      - name: 🚀 Asset Generation
         run: |
           mkdir -p assets
           cp logo.png assets/icon-only.png || true
           cp logo.png assets/splash.png || true
           npx @capacitor/assets generate --android || true
 
-      - name: ☢️ DEEP GRADLE FIX (The Ultimate Solution)
+      - name: ☢️ THE FINAL BCPROV CURE
         run: |
           cd android
-          # 1. Root build.gradle mein 'subprojects' configuration inject karna
-          # Ye har ek plugin (filesystem, camera etc.) ko force karega 1.78 use karne ke liye
-          sed -i '/allprojects {/a \    subprojects { \
-              project.configurations.all { \
-                  resolutionStrategy.eachDependency { details -> \
-                      if (details.requested.group == "org.bouncycastle") { \
-                          details.useVersion "1.78" \
-                      } \
-                  } \
-              } \
-          }' build.gradle
+          
+          # 1. build.gradle ke ekdum niche force-fix append karna
+          # Ye har sub-project (plugins) ko majboor karega 1.78 use karne ke liye
+          echo "
+          subprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.bouncycastle:bcprov-jdk18on:1.78'
+                      force 'org.bouncycastle:bcpkix-jdk18on:1.78'
+                  }
+              }
+          }
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.bouncycastle:bcprov-jdk18on:1.78'
+                      force 'org.bouncycastle:bcpkix-jdk18on:1.78'
+                  }
+              }
+          }
+          " >> build.gradle
 
-          # 2. gradle.properties mein memory fix
+          # 2. Properties setup
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
           
           chmod +x gradlew
 
-      - name: 🔨 Final Build Execution
+      - name: 🔨 Build Android APK
         run: |
           cd android
-          # --no-daemon aur workers=1 taaki jar file lock na ho
+          # --no-daemon aur workers=1 taaki dependency resolve hone mein lock na ho
           ./gradlew assembleDebug --no-daemon --max-workers=1 --no-parallel
 
       - name: 📤 Upload APK
