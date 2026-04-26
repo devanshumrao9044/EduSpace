@@ -91,9 +91,9 @@ export default function Sidebar({ user }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Yahan w-72 ko badal kar w-64 kar diya hai */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-white border-r w-72 z-40 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full bg-white border-r w-64 z-40 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0 md:static`}
       >
@@ -101,7 +101,6 @@ export default function Sidebar({ user }: SidebarProps) {
           {/* Logo & User Info */}
           <div className="p-6 border-b">
             <div className="flex items-center gap-3 mb-4">
-              {/* Yahan par humne BookOpen icon hata kar logo.png laga diya hai */}
               <img 
                 src="/logo.png" 
                 alt="Rankify Logo" 
