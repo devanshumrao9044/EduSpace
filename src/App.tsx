@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react' // 'import' small letter mein kiya
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { App as CapacitorApp } from '@capacitor/app' // Capacitor App Plugin
+import { App as CapApp } from '@capacitor/app' // Alias change kiya conflict rokne ke liye
 
 // Auth & Layout
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
@@ -34,27 +34,39 @@ function BackButtonHandler() {
   const location = useLocation()
 
   useEffect(() => {
-    const backButtonListener = CapacitorApp.addListener('backButton', () => {
-      // Wo main pages jahan exit confirmation chahiye
-      const rootPages = ['/', '/dashboard', '/login', '/register', '/admin/dashboard']
+    let handler: any;
 
-      if (rootPages.includes(location.pathname)) {
-        const shouldExit = window.confirm("Kya aap Rankify app se bahar jaana chahte hain?")
-        if (shouldExit) {
-          CapacitorApp.exitApp()
-        }
-      } else {
-        // Baaki pages par normal back jao
-        navigate(-1)
+    const setupListener = async () => {
+      // Sirf native mobile app par chale isliye try-catch lagaya
+      try {
+        handler = await CapApp.addListener('backButton', ({ canGoBack }) => {
+          const rootPages = ['/', '/dashboard', '/login', '/register', '/admin/dashboard']
+
+          if (rootPages.includes(location.pathname)) {
+            const shouldExit = window.confirm("Kya aap Rankify app se bahar jaana chahte hain?")
+            if (shouldExit) {
+              CapApp.exitApp()
+            }
+          } else {
+            navigate(-1)
+          }
+        })
+      } catch (error) {
+        // Website par hai toh error handle ho jayega
+        console.log('Running on Web/Vercel, skipping back listener');
       }
-    })
+    }
+
+    setupListener()
 
     return () => {
-      backButtonListener.then(l => l.remove())
+      if (handler) {
+        handler.remove()
+      }
     }
   }, [location, navigate])
 
-  return null // Ye component sirf listener chalane ke liye hai
+  return null
 }
 
 function App() {
@@ -62,18 +74,13 @@ function App() {
   const [session, setSession] = useState<any>(null)
 
   useEffect(() => {
-    // 1. App start hote hi current session check karo
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setIsInitializing(false)
     })
 
-    // 2. Auth State Change Listener
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
-      if (event === 'SIGNED_IN') {
-        console.log('✅ Email Verified & Signed In!')
-      }
     })
 
     return () => {
@@ -91,7 +98,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      {/* Back Button Logic yahan trigger hogi */}
       <BackButtonHandler />
 
       <Routes>
