@@ -12,62 +12,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Environment (Java 21 & Node 20)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: 📦 Install Dependencies
+      - name: Install & Build React
         run: |
           npm install --legacy-peer-deps
           npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install @capacitor/assets -g
+          npm run build
 
-      - name: Build React Project
-        run: npm run build
-
-      - name: 🛠️ Capacitor Setup & "No-Fail" Android Folder
+      - name: Capacitor Repair & Sync
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
-          
-          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+          if [ ! -f "capacitor.config.json" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
-          
-          # AGGRESSIVE FIX: Agar gradlew missing hai toh folder uda kar naya banao
-          if [ -d "android" ]; then
-            if [ ! -f "android/gradlew" ]; then
-              echo "Android folder broken! Re-creating..."
-              rm -rf android
-              npx cap add android
-            else
-              npx cap sync android
-            fi
-          else
-            npx cap add android
-          fi
+          # Fresh folder creation
+          rm -rf android
+          npx cap add android
+          npx cap sync android
 
-      - name: 🚀 LOGO & ICON GENERATION
+      - name: ☢️ GRADLE CONFLICT FIXER (Master Fix)
         run: |
-          mkdir -p assets
-          if [ -f "logo.png" ]; then
-            cp logo.png assets/icon-only.png
-            cp logo.png assets/icon-foreground.png
-            cp logo.png assets/icon-background.png
-            cp logo.png assets/splash.png
-            cp logo.png assets/splash-dark.png
-            npx @capacitor/assets generate --android
-          fi
-
-      - name: ☢️ SYSTEM-LEVEL JAR FIX (Conflict Solver)
-        run: |
-          # Global Gradle fix create kar rahe hain
           mkdir -p ~/.gradle
           echo "allprojects {
               configurations.all {
@@ -78,24 +51,19 @@ jobs:
               }
           }" > ~/.gradle/init.gradle
           
-          # Android properties update
-          if [ -d "android" ]; then
-            cd android
-            echo "android.useAndroidX=true" >> gradle.properties
-            echo "android.enableJetifier=true" >> gradle.properties
-            if [ -f "gradlew" ]; then
-              chmod +x gradlew
-            fi
-          fi
+          cd android
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          chmod +x gradlew
 
-      - name: 🔨 Final Android Build
+      - name: 🔨 Final Build
         run: |
           cd android
-          # --init-script se master fix apply hoga
+          # --init-script logic to bypass all JAR jhagdas
           ./gradlew assembleDebug --init-script ~/.gradle/init.gradle --no-daemon --max-workers=1 --no-parallel
 
-      - name: 📤 Upload Final APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Working-Build
+          name: Rankify-Final-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
