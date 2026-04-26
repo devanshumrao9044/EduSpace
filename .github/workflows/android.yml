@@ -32,20 +32,24 @@ jobs:
       - name: Build React Project
         run: npm run build
 
-      - name: Setup Capacitor & Sync
+      - name: Setup Capacitor & Force Sync 🛠️
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           
-          # Capacitor config fix
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
 
-          # Android folder refresh logic
-          if [ -d "android" ]; then
-            npx cap sync android
-          else
+          # AGGRESSIVE FIX: Agar android folder hai par gradlew missing hai, toh usey delete karke naya banao
+          if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
+            echo "Gradlew missing! Fixing android folder..."
+            rm -rf android
+          fi
+
+          if [ ! -d "android" ]; then
             npx cap add android
+          else
+            npx cap sync android
           fi
 
       - name: 🚀 LOGO & ICON GENERATION
@@ -60,19 +64,23 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: Fix Kotlin & Gradle Clean 🧹
+      - name: Fix Kotlin & Permissions
         run: |
           cd android
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          chmod +x gradlew
-          # Ye line purane corrupt jars ko delete karegi
-          ./gradlew clean 
+          # Dobara check kar rahe hain taaki error na aaye
+          if [ -f "gradlew" ]; then
+            echo "android.useAndroidX=true" >> gradle.properties
+            echo "android.enableJetifier=true" >> gradle.properties
+            chmod +x gradlew
+            ./gradlew clean
+          else
+            echo "Error: Gradlew still not found!"
+            exit 1
+          fi
 
       - name: Build Android APK (Debug)
         run: |
           cd android
-          # Memory issue se bachne ke liye thoda extra dum
           ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
