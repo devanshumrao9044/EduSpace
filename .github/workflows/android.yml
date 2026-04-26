@@ -32,17 +32,23 @@ jobs:
       - name: Build React Project
         run: npm run build
 
-      - name: 🛠️ Capacitor Setup & Repair
+      - name: 🛠️ Capacitor Setup & "No-Fail" Android Folder
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
+          
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
           
+          # AGGRESSIVE FIX: Agar gradlew missing hai toh folder uda kar naya banao
           if [ -d "android" ]; then
-            # Pura purana kachra saaf karo
-            rm -rf android/.gradle
-            npx cap sync android
+            if [ ! -f "android/gradlew" ]; then
+              echo "Android folder broken! Re-creating..."
+              rm -rf android
+              npx cap add android
+            else
+              npx cap sync android
+            fi
           else
             npx cap add android
           fi
@@ -59,9 +65,9 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: ☢️ SYSTEM-LEVEL JAR FIX (The Final Solution)
+      - name: ☢️ SYSTEM-LEVEL JAR FIX (Conflict Solver)
         run: |
-          # Gradle ke home directory mein master fix daal rahe hain
+          # Global Gradle fix create kar rahe hain
           mkdir -p ~/.gradle
           echo "allprojects {
               configurations.all {
@@ -72,20 +78,24 @@ jobs:
               }
           }" > ~/.gradle/init.gradle
           
-          # Android folder ke andar ke conflict ko bhi force-fix karo
-          cd android
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          chmod +x gradlew
+          # Android properties update
+          if [ -d "android" ]; then
+            cd android
+            echo "android.useAndroidX=true" >> gradle.properties
+            echo "android.enableJetifier=true" >> gradle.properties
+            if [ -f "gradlew" ]; then
+              chmod +x gradlew
+            fi
+          fi
 
-      - name: 🔨 Build Android APK
+      - name: 🔨 Final Android Build
         run: |
           cd android
-          # --no-daemon aur workers=1 taaki koi file lock na ho
-          ./gradlew assembleDebug --no-daemon --max-workers=1 --no-parallel
+          # --init-script se master fix apply hoga
+          ./gradlew assembleDebug --init-script ~/.gradle/init.gradle --no-daemon --max-workers=1 --no-parallel
 
-      - name: 📤 Upload APK
+      - name: 📤 Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Success
+          name: Rankify-Working-Build
           path: android/app/build/outputs/apk/debug/app-debug.apk
