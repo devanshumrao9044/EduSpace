@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Upload, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FilePicker } from '@capawesome/capacitor-file-picker'
-import { Filesystem } from '@capacitor/filesystem' // 👈 Permission ke liye
+import { Filesystem } from '@capacitor/filesystem'
 
 export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) {
   const [uploading, setUploading] = useState(false)
@@ -25,8 +25,7 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
 
     for (let i = 0; i < cleanedText.length; i++) {
       const char = cleanedText[i]
-      const nextChar = cleanedText[i + 1] || ''
-      if (char === '"' && inQuotes && nextChar === '"') {
+      if (char === '"' && inQuotes && cleanedText[i + 1] === '"') {
         currentCell += '"'; i++
       } else if (char === '"') {
         inQuotes = !inQuotes
@@ -47,31 +46,24 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
   const handleCSVSelection = async () => {
     setUploading(true)
     try {
-      // 1. ZABARDASTI PERMISSION POPUP LAO
       const check = await Filesystem.checkPermissions()
       if (check.publicStorage !== 'granted') {
         await Filesystem.requestPermissions()
       }
 
-      // 2. PICKER KHOLO (Filter hata kar */* kar diya taaki files dikhein)
       const result = await FilePicker.pickFiles({
-        types: ['*/*'], // 👈 Isse ab "No items" nahi aayega
+        types: ['*/*'], 
         multiple: false,
         readData: true 
       })
 
       if (result.files.length === 0) {
-        setUploading(false)
-        return
+        setUploading(false); return
       }
 
       const file = result.files[0]
-      
-      // 3. Manual Check ki file CSV hi hai na
       if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error("Bhai, sirf .csv file hi chalegi!")
-        setUploading(false)
-        return
+        toast.error("Bhai, sirf .csv file hi chalegi!"); setUploading(false); return
       }
 
       if (!file.data) throw new Error("File data nahi mila.")
@@ -82,27 +74,19 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
-        if (row.length < 8) continue
-        if (row[0].toLowerCase().includes('question_text')) continue
+        if (row.length < 8 || row[0].toLowerCase().includes('question_text')) continue
 
         const clean = (val: string) => val ? val.trim() : ''
-        let rawType = clean(row[1]).toLowerCase()
-        let finalType = ['mcq', 'integer', 'paragraph'].includes(rawType) ? rawType : 'mcq'
-
         questions.push({
           quiz_id: quizId,
           question_text: clean(row[0]),
-          question_type: finalType,
-          options: {
-            A: clean(row[2]), B: clean(row[3]), C: clean(row[4]), D: clean(row[5]),
-          },
+          question_type: ['mcq', 'integer', 'paragraph'].includes(clean(row[1]).toLowerCase()) ? clean(row[1]).toLowerCase() : 'mcq',
+          options: { A: clean(row[2]), B: clean(row[3]), C: clean(row[4]), D: clean(row[5]) },
           correct_answer: clean(row[6]),
           marks: parseInt(clean(row[7])) || 1,
           order_number: i + 100 
         })
       }
-
-      if (questions.length === 0) throw new Error("File format galat hai.")
 
       const { error } = await supabase.from('questions').insert(questions)
       if (error) throw error
@@ -111,22 +95,15 @@ export default function QuestionBulkUploader({ quizId, onUploadComplete }: any) 
       if (onUploadComplete) onUploadComplete()
       
     } catch (err: any) {
-      console.error(err)
-      toast.error(`Error: ${err.message || 'File access nahi mila'}`)
+      toast.error(`Error: ${err.message || 'File access error'}`)
     } finally {
       setUploading(false)
     }
   }
 
   return (
-    <Button 
-      variant="outline" 
-      size="sm" 
-      onClick={handleCSVSelection} 
-      disabled={uploading}
-      className="border-dashed border-green-500 text-green-600"
-    >
-      {uploading ? <Loader2 className="animate-spin mr-2" /> : <Upload className="mr-2" />}
+    <Button variant="outline" size="sm" onClick={handleCSVSelection} disabled={uploading} className="border-dashed border-green-500 text-green-600">
+      {uploading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
       Bulk CSV
     </Button>
   )
