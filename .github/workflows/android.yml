@@ -50,19 +50,22 @@ jobs:
           cp logo.png assets/splash.png || true
           npx @capacitor/assets generate --android || true
 
-      - name: 🔨 Build Android APK (The Ultimate Gradle Upgrade Fix)
+      - name: 🔨 SDK 35 Upgrade & Final Build
         run: |
           cd android
           
-          # 🚨 SABSE BADA FIX YAHI HAI 🚨
-          # Hum Capacitor ke default Gradle 8.2.1 ko 8.7 se replace kar rahe hain
+          # Gradle Upgrade (Jo pichli baar kaam kar gaya!)
           sed -i 's/gradle-8.2.1-all.zip/gradle-8.7-all.zip/g' gradle/wrapper/gradle-wrapper.properties
+          
+          # 🚨 NAYA FIX: API 34 ko API 35 mein badal rahe hain 🚨
+          sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/g' variables.gradle
+          sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/g' variables.gradle
           
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
           
-          # Clean aur Build ek saath
+          # Clean aur Build
           ./gradlew clean assembleDebug --no-daemon
 
       - name: 📤 Upload APK
