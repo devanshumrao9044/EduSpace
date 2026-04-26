@@ -23,29 +23,26 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 📦 Install Essential Dependencies
+      - name: 📦 Install Dependencies
         run: |
           npm install --legacy-peer-deps
-          # Vite build ke liye plugins ko project mein save karna zaroori hai
           npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
-      - name: 🛠️ Capacitor Setup & Repair
+      - name: 🛠️ Capacitor Setup & Folder Fix
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
-          
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
-
-          # Agar folder corrupt hai toh naya banao
+          
+          # Force repair android folder
           if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
             rm -rf android
           fi
-
           if [ ! -d "android" ]; then
             npx cap add android
           else
@@ -64,29 +61,29 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: ☢️ NUCLEAR CONFLICT FIXER (The Final Cure)
+      - name: ☢️ CREATE GLOBAL JAR FIXER (init.gradle)
         run: |
-          cd android
-          # 1. Force use of AndroidX and Jetifier
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          
-          # 2. Force Gradle to use ONLY version 1.78 of BouncyCastle (bcprov)
-          # Ye line build.gradle mein 'allprojects' ke andar resolution strategy ghusa degi
-          sed -i '/allprojects {/a \    configurations.all { resolutionStrategy { force "org.bouncycastle:bcprov-jdk18on:1.78" } }' build.gradle
-          
-          # 3. Clean environment
-          chmod +x gradlew
-          ./gradlew clean
+          # Ye file Gradle ke saare conflicts ko jadd se khatam karegi
+          echo "allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.bouncycastle:bcprov-jdk18on:1.78'
+                      force 'org.bouncycastle:bcpkix-jdk18on:1.78'
+                  }
+              }
+          }" > init.gradle
 
       - name: 🔨 Final Build Execution
         run: |
           cd android
-          # Workers=1 aur no-daemon taaki memory jhagda na ho
-          ./gradlew assembleDebug --no-daemon --max-workers=1 --no-parallel
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          chmod +x gradlew
+          # --init-script use karke humne rule ko global bana diya hai
+          ./gradlew assembleDebug --init-script ../init.gradle --no-daemon --max-workers=1 --no-parallel
 
       - name: 📤 Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Fixed-Build
+          name: Rankify-Final-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
