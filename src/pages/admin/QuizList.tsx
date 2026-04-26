@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react' // 'import' small letter mein kiya
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Plus, Calendar, Clock, Users, Edit, Trash2, Eye, MoreVertical } from 'lucide-react'
+import { 
+  Plus, 
+  Calendar, 
+  Clock, 
+  Users, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  MoreVertical,
+  ArrowLeft // Back icon add kiya
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -31,8 +41,6 @@ export default function QuizList() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-
-      console.log('Quizzes loaded:', data)
       setQuizzes(data || [])
     } catch (error: any) {
       console.error('Error loading quizzes:', error)
@@ -60,7 +68,7 @@ export default function QuizList() {
   }
 
   const handleDelete = async (quizId: string) => {
-    if (!confirm('Are you sure you want to delete this quiz? This will also delete all questions and attempts.')) {
+    if (!confirm('Are you sure you want to delete this quiz?')) {
       return
     }
 
@@ -104,10 +112,7 @@ export default function QuizList() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading quizzes...</p>
-        </div>
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -115,7 +120,17 @@ export default function QuizList() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          
+          {/* 👇 NAYA BACK BUTTON 👇 */}
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            className="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition-colors mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">Back to Dashboard</span>
+          </button>
+
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Quizzes</h1>
@@ -138,9 +153,7 @@ export default function QuizList() {
                   <Users className="w-8 h-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">No quizzes yet</h3>
-                <p className="text-muted-foreground mb-6">
-                  Get started by creating your first quiz
-                </p>
+                <p className="text-muted-foreground mb-6">Get started by creating your first quiz</p>
                 <Button onClick={() => navigate('/admin/quiz/new')}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Your First Quiz
@@ -152,77 +165,47 @@ export default function QuizList() {
           <div className="grid gap-4">
             {quizzes.map((quiz) => {
               const status = getQuizStatus(quiz)
-              
               return (
                 <Card key={quiz.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-foreground truncate">
-                            {quiz.title}
-                          </h3>
+                          <h3 className="text-lg font-semibold text-foreground truncate">{quiz.title}</h3>
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${status.color}`}>
                             {status.label}
                           </span>
                         </div>
-                        
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {quiz.description}
-                        </p>
-
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{quiz.description}</p>
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span>{quiz.duration_minutes} mins</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatDate(quiz.start_time)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            <span>{quiz.total_marks} marks</span>
-                          </div>
+                          <div className="flex items-center gap-2"><Clock className="w-4 h-4" /><span>{quiz.duration_minutes} mins</span></div>
+                          <div className="flex items-center gap-2"><Calendar className="w-4 h-4" /><span>{formatDate(quiz.start_time)}</span></div>
+                          <div className="flex items-center gap-2"><Users className="w-4 h-4" /><span>{quiz.total_marks} marks</span></div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col items-center gap-2">
                           <span className="text-xs text-muted-foreground">Active</span>
-                          <Switch
-                            checked={quiz.is_active}
-                            onCheckedChange={() => handleToggleActive(quiz)}
-                          />
+                          <Switch checked={quiz.is_active} onCheckedChange={() => handleToggleActive(quiz)} />
                         </div>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
+                            <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {/* 👇 NAYA EDIT DETAILS/TIME BUTTON YAHAN ADD KIYA HAI 👇 */}
                             <DropdownMenuItem onClick={() => navigate(`/admin/quiz/${quiz.id}/edit`)}>
-                              <Calendar className="w-4 h-4 mr-2" />
-                              Edit Details & Time
+                              <Calendar className="w-4 h-4 mr-2" />Edit Details & Time
                             </DropdownMenuItem>
-                            {/* 👆 YAHAN TAK 👆 */}
                             <DropdownMenuItem onClick={() => navigate(`/admin/quiz/${quiz.id}/questions`)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Manage Questions
+                              <Edit className="w-4 h-4 mr-2" />Manage Questions
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate(`/admin/quiz/${quiz.id}/results`)}>
-                              <Eye className="w-4 h-4 mr-2" />
-                              View Results
+                              <Eye className="w-4 h-4 mr-2" />View Results
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(quiz.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete Quiz
+                            <DropdownMenuItem onClick={() => handleDelete(quiz.id)} className="text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />Delete Quiz
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
