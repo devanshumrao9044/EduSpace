@@ -31,15 +31,15 @@
 
 @layer base {
   html {
-    /* 1. Android/iOS ki auto text sizing band karo */
+    /* Android/iOS auto text sizing fix */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     
-    /* 2. ZOOM OUT FIX: Base 16px ko 14px kiya */
-    /* Isse poori app mobile ke liye compact ho jayegi */
+    /* ZOOM FIX: Compact look for mobile */
     font-size: 14px !important; 
     
     box-sizing: border-box;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -47,19 +47,45 @@
     margin: 0;
     padding: 0;
     
-    /* 3. SCREEN FIT: Horizontal scroll ko block karo */
+    /* SCREEN FIT: Prevents horizontal overflow */
     width: 100%;
     min-height: 100vh;
     overflow-x: hidden;
     
-    /* Touch devices par smooth feel ke liye */
+    /* Smooth scrolling on mobile */
     -webkit-overflow-scrolling: touch;
   }
 
   * {
     @apply border-border;
-    /* Poori app mein Poppins font */
     font-family: 'Poppins', sans-serif !important; 
     box-sizing: border-box;
   }
+}
+
+@layer utilities {
+  /* Tabs mashup fix: Horizontal scroll bina scrollbar ke */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE/Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  /* Mobile tap highlight remove */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Force charts to stay inside screen */
+  .recharts-responsive-container {
+    min-width: 0 !important;
+  }
+}
+
+/* Custom interaction for mobile feel */
+button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
 }
