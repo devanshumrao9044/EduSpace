@@ -195,8 +195,8 @@ export default function ManageQuestions() {
   )
 
   return (
-    // 👇 FIX: `w-full max-w-full overflow-x-hidden` jisse mobile par bahar nahi jayega
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 p-3 sm:p-8 font-sans">
+    // 👇 FIX 1: pt-12 (Padding Top) add kiya taaki Status Bar se overlap na ho
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 p-4 pt-12 sm:p-8 sm:pt-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         <Button variant="ghost" onClick={() => navigate('/admin/quizzes')} className="font-bold -ml-2">
           <ArrowLeft className="mr-2 h-4 w-4"/> Back
@@ -222,7 +222,6 @@ export default function ManageQuestions() {
               </CardHeader>
               <CardContent className="p-4 sm:p-6">
                 
-                {/* 👇 FIX: Text size thoda adjust kiya mobile ke liye */}
                 <Tabs value={questionType} onValueChange={(v) => handleTypeChange(v as any)} className="mb-6">
                   <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100">
                     <TabsTrigger value="mcq" className="font-bold text-xs sm:text-sm">MCQ</TabsTrigger>
@@ -282,7 +281,6 @@ export default function ManageQuestions() {
                     onChange={e => setFormData({...formData, question_text: e.target.value})}
                   />
                   
-                  {/* 👇 FIX: Mobile par 1 column, badi screen par 2 columns taaki fields cut na hon */}
                   {questionType === 'mcq' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})} required className="w-full"/>
@@ -292,9 +290,7 @@ export default function ManageQuestions() {
                     </div>
                   )}
                   
-                  {/* 👇 FIX: Mobile par 1 column, badi screen par 3 columns. Yehi tha culprit jo cut ho raha tha! */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 sm:items-end">
-                    
                     <div className="space-y-1 w-full">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Correct Answer</label>
                       {questionType === 'mcq' ? (
@@ -369,8 +365,10 @@ export default function ManageQuestions() {
                 <div className="p-8 sm:p-12 text-center text-slate-300 font-bold italic">Empty</div>
               ) : (
                 questions.map((q: any, i) => (
-                  <div key={q.id} className="p-3 sm:p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors">
-                    <div className="truncate flex-1 pr-2">
+                  <div key={q.id} className="p-3 sm:p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors w-full">
+                    
+                    {/* 👇 FIX 2: min-w-0 add kiya taaki truncate kaam kare aur dhakka na de */}
+                    <div className="flex-1 min-w-0 pr-2">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</span>
                         {q.image_url && <ImageIcon className="w-3 h-3 text-indigo-500" />}
@@ -383,10 +381,13 @@ export default function ManageQuestions() {
                         {q.question_text ? q.question_text : <span className="italic text-slate-400">Image Based Question</span>}
                       </p>
                     </div>
-                    <div className="flex gap-1">
+                    
+                    {/* 👇 FIX 3: shrink-0 add kiya taaki icons hamesha dikhen, screen ke bahar na jayen */}
+                    <div className="flex gap-1 shrink-0">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-7 w-7 sm:h-8 sm:w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
                     </div>
+
                   </div>
                 ))
               )}
