@@ -31,20 +31,30 @@ jobs:
       - name: Build React Project
         run: npm run build
 
-      - name: Setup Capacitor & Fix Manual Folders
+      - name: Setup Capacitor & Config Fix
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           
-          # Agar 'android' folder hai par 'gradlew' nahi, toh ye incomplete hai
+          # 1. AGAR config file nahi hai, toh usey banao (appId missing error fix)
+          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
+            echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
+          fi
+
+          # 2. Manual folder fix logic
           if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
-            echo "Incomplete android folder detected. Fixing..."
-            # User ka manifest bachane ke liye backup le rahe hain
+            echo "Incomplete folder detected. Rebuilding while keeping your permissions..."
             mkdir -p backup_manifest
-            cp -r android/app/src/main/* backup_manifest/ || true
+            # Tumhara banaya hua AndroidManifest backup le rahe hain
+            if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+              cp android/app/src/main/AndroidManifest.xml backup_manifest/
+            fi
             rm -rf android
             npx cap add android
-            # Manifest ko wapas sahi jagah daal rahe hain
-            cp -r backup_manifest/* android/app/src/main/ || true
+            # Backup waali file wapas sahi jagah daal rahe hain
+            if [ -f "backup_manifest/AndroidManifest.xml" ]; then
+              mkdir -p android/app/src/main/
+              cp backup_manifest/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+            fi
             rm -rf backup_manifest
           elif [ ! -d "android" ]; then
             npx cap add android
@@ -57,6 +67,7 @@ jobs:
           cd android
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
+          # Gradlew ko permission dena zaroori hai
           chmod +x gradlew
 
       - name: Build Android APK (Debug)
