@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, ArrowRight, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, Mail, Lock, User, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -54,10 +54,10 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-3xl font-black italic uppercase tracking-tighter text-slate-900">Verify Email</CardTitle>
             <CardDescription className="font-bold text-slate-400 uppercase text-[10px] tracking-[0.2em] mt-2">
-              MATERIALHUB RANKIFY Safety Protocol
+              RANKIFY Safety Protocol
             </CardDescription>
             <p className="mt-6 text-slate-600 font-medium leading-relaxed">
-              Humne ek verification link aapke email par bheja hai. Use click karne ke baad hi aap **MATERIALHUB QUIZX** access kar payenge.
+              Humne ek verification link aapke email par bheja hai. Use click karne ke baad hi aap **RANKIFY** access kar payenge.
             </p>
           </CardHeader>
           <CardFooter className="mt-4">
@@ -77,12 +77,11 @@ export default function RegisterPage() {
         {/* Left side - Branding */}
         <div className="hidden lg:block space-y-10 px-8">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl rotate-3">
-              <BookOpen className="w-8 h-8 text-white" />
-            </div>
+            {/* Yahan Logo Image add ki gayi hai */}
+            <img src="/logo.png" alt="Rankify Logo" className="w-14 h-14 rounded-2xl shadow-2xl rotate-3 object-cover" />
             <div>
-              <h1 className="text-4xl font-black italic text-slate-900 uppercase tracking-tighter leading-none">MATERIALHUB</h1>
-              <span className="text-indigo-600 font-black italic uppercase tracking-[0.3em] text-xs">RANKIFY PLATFORM</span>
+              <h1 className="text-4xl font-black italic text-slate-900 uppercase tracking-tighter leading-none">RANKIFY</h1>
+              <span className="text-indigo-600 font-black italic uppercase tracking-[0.3em] text-xs">QUIZ PLATFORM</span>
             </div>
           </div>
           
@@ -92,15 +91,12 @@ export default function RegisterPage() {
               <span className="text-indigo-600">Learning Game.</span>
             </h2>
             <p className="text-lg text-slate-500 font-bold uppercase tracking-tight max-w-md">
-              Join the elite community of learners on MATERIALHUB. Fast, Secure, and Built for Success.
+              Join the elite community of learners on RANKIFY. Fast, Secure, and Built for Success.
             </p>
           </div>
 
           <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-none ring-1 ring-slate-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <BookOpen className="w-32 h-32 text-indigo-600 rotate-12" />
-            </div>
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-4 mb-6 relative z-10">
               <img
                 src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop"
                 alt="Student"
@@ -122,10 +118,9 @@ export default function RegisterPage() {
           <Card className="shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-none rounded-[3rem] p-4 bg-white/80 backdrop-blur-sm">
             <CardHeader className="space-y-1 pb-6 pt-8 text-center">
               <div className="lg:hidden flex flex-col items-center gap-2 mb-6">
-                <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center shadow-xl">
-                  <BookOpen className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-2xl font-black italic uppercase tracking-tighter">MATERIALHUB QUIZX</span>
+                {/* Mobile ke liye bhi Logo Image add ki gayi hai */}
+                <img src="/logo.png" alt="Rankify Logo" className="w-12 h-12 rounded-2xl shadow-xl object-cover" />
+                <span className="text-2xl font-black italic uppercase tracking-tighter">RANKIFY</span>
               </div>
               <CardTitle className="text-3xl font-black italic uppercase text-slate-900 tracking-tighter">Join the Hub</CardTitle>
               <CardDescription className="font-black text-slate-400 uppercase text-[10px] tracking-[0.25em]">
@@ -216,4 +211,3 @@ export default function RegisterPage() {
     </div>
   )
 }
-
