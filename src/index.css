@@ -30,6 +30,14 @@
 }
 
 @layer base {
+  /* 👇 YAHAN HUMNE NAYA FIX ADD KIYA HAI ZOOM HATANE KE LIYE 👇 */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    font-size: 14px !important; 
+  }
+  /* 👆 YAHAN TAK NAYA HAI 👆 */
+
   * {
     @apply border-border;
     /* Ye line poori app mein Poppins font laga degi */
