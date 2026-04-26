@@ -25,52 +25,47 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          # legacy-peer-deps conflicts rokne ke liye
           npm install --legacy-peer-deps
-          npm install @capacitor/assets -g
+          npm install @capacitor/assets @capacitor/preferences @capacitor/camera @capacitor/filesystem -g
 
       - name: Build React Project
         run: npm run build
 
-      - name: Setup Capacitor
+      - name: Setup Capacitor & Fix Manual Folders
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
-          if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            npx cap init Rankify com.materialhub.app --web-dir dist
+          
+          # Agar 'android' folder hai par 'gradlew' nahi, toh ye incomplete hai
+          if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
+            echo "Incomplete android folder detected. Fixing..."
+            # User ka manifest bachane ke liye backup le rahe hain
+            mkdir -p backup_manifest
+            cp -r android/app/src/main/* backup_manifest/ || true
+            rm -rf android
+            npx cap add android
+            # Manifest ko wapas sahi jagah daal rahe hain
+            cp -r backup_manifest/* android/app/src/main/ || true
+            rm -rf backup_manifest
+          elif [ ! -d "android" ]; then
+            npx cap add android
           fi
-          if [ ! -d "android" ]; then
-            npx cap add android || true
-          fi
+          
+          npx cap sync android
 
-      - name: Generate App Icons
-        # Yahan humne '--icon-path' hata diya hai aur default behaviour use kiya hai
-        run: |
-          if [ -f "logo.png" ]; then
-            # Logo ko tool ke hisaab se sahi jagah copy kar rahe hain
-            mkdir -p assets
-            cp logo.png assets/logo.png
-            # Tool ko bina extra flags ke chala rahe hain taaki crash na ho
-            npx @capacitor/assets generate --android || echo "Icon generation failed, but continuing build..."
-          fi
-        continue-on-error: true
-
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      - name: Fix Kotlin Duplicate Class Error
+      - name: Fix Kotlin & Permissions
         run: |
           cd android
-          echo "android.useAndroidX=true" >> local.properties
-          echo "android.enableJetifier=true" >> local.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          chmod +x gradlew
 
       - name: Build Android APK (Debug)
         run: |
           cd android
-          chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Fix-Build
+          name: Rankify-Final-Build
           path: android/app/build/outputs/apk/debug/app-debug.apk
