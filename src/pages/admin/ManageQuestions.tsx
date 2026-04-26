@@ -120,13 +120,11 @@ export default function ManageQuestions() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Required check: Ya toh question text ho ya image ho
     if (!formData.question_text.trim() && !formData.image_url) {
       toast.error("Bhai, ya toh question likho ya picture upload karo!")
       return
     }
     
-    // MCQ type ke liye strict check - in case empty submit ho
     let finalAnswer = formData.correct_answer
     if (questionType === 'mcq' && !['A', 'B', 'C', 'D'].includes(finalAnswer)) {
       toast.error("Please select a valid option (A, B, C, or D) for the correct answer.")
@@ -179,12 +177,11 @@ export default function ManageQuestions() {
     }
   }
 
-  // Handle Tab Change to reset answer logic safely
   const handleTypeChange = (value: 'mcq' | 'integer' | 'paragraph') => {
     setQuestionType(value)
     if (value === 'mcq') {
        if (!['A', 'B', 'C', 'D'].includes(formData.correct_answer)) {
-           setFormData({ ...formData, correct_answer: '' }) // Reset if invalid for MCQ
+           setFormData({ ...formData, correct_answer: '' })
        }
     } else {
        setFormData({ ...formData, correct_answer: '' })
@@ -192,24 +189,25 @@ export default function ManageQuestions() {
   }
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center bg-gray-50">
+    <div className="h-screen w-full flex items-center justify-center bg-gray-50 overflow-hidden">
       <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
+    // 👇 FIX: `w-full max-w-full overflow-x-hidden` jisse mobile par bahar nahi jayega
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 p-3 sm:p-8 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/admin/quizzes')} className="font-bold">
+        <Button variant="ghost" onClick={() => navigate('/admin/quizzes')} className="font-bold -ml-2">
           <ArrowLeft className="mr-2 h-4 w-4"/> Back
         </Button>
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Card className={editingId ? "border-indigo-500 shadow-xl" : "border-none shadow-md"}>
-              <CardHeader className="bg-white border-b">
-                <CardTitle className="flex justify-between items-center text-xl font-black italic">
-                  <div className="flex items-center gap-4">
+              <CardHeader className="bg-white border-b px-4 sm:px-6">
+                <CardTitle className="flex justify-between items-center text-lg sm:text-xl font-black italic">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                     <span>{editingId ? "EDITING" : "ADD QUESTION"}</span>
                     {!editingId && (
                       <QuestionBulkUploader 
@@ -222,17 +220,19 @@ export default function ManageQuestions() {
                   {editingId && <Button variant="ghost" size="sm" onClick={resetForm}><X className="h-5 w-5"/></Button>}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
+                
+                {/* 👇 FIX: Text size thoda adjust kiya mobile ke liye */}
                 <Tabs value={questionType} onValueChange={(v) => handleTypeChange(v as any)} className="mb-6">
                   <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100">
-                    <TabsTrigger value="mcq" className="font-bold">MCQ</TabsTrigger>
-                    <TabsTrigger value="integer" className="font-bold">Integer</TabsTrigger>
-                    <TabsTrigger value="paragraph" className="font-bold">Paragraph</TabsTrigger>
+                    <TabsTrigger value="mcq" className="font-bold text-xs sm:text-sm">MCQ</TabsTrigger>
+                    <TabsTrigger value="integer" className="font-bold text-xs sm:text-sm">Integer</TabsTrigger>
+                    <TabsTrigger value="paragraph" className="font-bold text-xs sm:text-sm">Paragraph</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  
-                  {/* 🔥 IMAGE UPLOAD UI 🔥 */}
+                  {/* IMAGE UPLOAD UI */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Question Image (Optional)</label>
@@ -248,7 +248,7 @@ export default function ManageQuestions() {
                         <img 
                           src={formData.image_url} 
                           alt="Preview" 
-                          className="max-h-[300px] object-contain rounded-lg transition-transform hover:scale-[1.02] cursor-zoom-in"
+                          className="max-h-[300px] max-w-full object-contain rounded-lg transition-transform hover:scale-[1.02] cursor-zoom-in"
                         />
                       </div>
                     ) : (
@@ -261,7 +261,7 @@ export default function ManageQuestions() {
                         ) : (
                           <>
                             <UploadCloud className="h-6 w-6 text-slate-400 mb-1" />
-                            <span className="text-xs font-bold text-slate-500">Click to upload question image</span>
+                            <span className="text-xs font-bold text-slate-500">Click to upload image</span>
                           </>
                         )}
                         <input 
@@ -277,23 +277,25 @@ export default function ManageQuestions() {
 
                   <Textarea
                     placeholder={formData.image_url ? "Type question text here (Optional)..." : "Enter question text..."}
-                    className="min-h-[120px] text-lg font-medium rounded-xl"
+                    className="min-h-[120px] text-base sm:text-lg font-medium rounded-xl w-full"
                     value={formData.question_text}
                     onChange={e => setFormData({...formData, question_text: e.target.value})}
                   />
+                  
+                  {/* 👇 FIX: Mobile par 1 column, badi screen par 2 columns taaki fields cut na hon */}
                   {questionType === 'mcq' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})} required/>
-                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})} required/>
-                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})} required/>
-                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required/>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})} required className="w-full"/>
+                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})} required className="w-full"/>
+                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})} required className="w-full"/>
+                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required className="w-full"/>
                     </div>
                   )}
                   
-                  {/* Correct Answer, Marks, aur Negative Marks ka Grid */}
-                  <div className="grid grid-cols-3 gap-4 items-end">
+                  {/* 👇 FIX: Mobile par 1 column, badi screen par 3 columns. Yehi tha culprit jo cut ho raha tha! */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 sm:items-end">
                     
-                    <div className="space-y-1">
+                    <div className="space-y-1 w-full">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Correct Answer</label>
                       {questionType === 'mcq' ? (
                         <select
@@ -314,34 +316,38 @@ export default function ManageQuestions() {
                           value={formData.correct_answer}
                           onChange={e => setFormData({...formData, correct_answer: e.target.value})}
                           required
+                          className="w-full"
                         />
                       )}
                     </div>
 
-                    <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks (+)</label>
-                       <Input
-                         type="number"
-                         placeholder="Marks"
-                         value={formData.marks}
-                         onChange={e => setFormData({...formData, marks: parseFloat(e.target.value) || 1})}
-                         min={0}
-                         step="0.25"
-                       />
-                    </div>
+                    <div className="flex gap-3 sm:gap-4 sm:col-span-2">
+                      <div className="space-y-1 flex-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks (+)</label>
+                        <Input
+                          type="number"
+                          placeholder="Marks"
+                          value={formData.marks}
+                          onChange={e => setFormData({...formData, marks: parseFloat(e.target.value) || 1})}
+                          min={0}
+                          step="0.25"
+                          className="w-full"
+                        />
+                      </div>
 
-                    <div className="space-y-1">
-                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Negative (-)</label>
-                       <Input
-                         type="number"
-                         placeholder="Neg Marks"
-                         value={formData.negative_marks}
-                         onChange={e => setFormData({...formData, negative_marks: parseFloat(e.target.value) || 0})}
-                         min={0}
-                         step="0.25"
-                       />
+                      <div className="space-y-1 flex-1">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Negative (-)</label>
+                        <Input
+                          type="number"
+                          placeholder="Neg Marks"
+                          value={formData.negative_marks}
+                          onChange={e => setFormData({...formData, negative_marks: parseFloat(e.target.value) || 0})}
+                          min={0}
+                          step="0.25"
+                          className="w-full"
+                        />
+                      </div>
                     </div>
-
                   </div>
                   
                   <Button type="submit" disabled={isUploadingImage} className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600' : 'bg-slate-900'} disabled:opacity-50`}>
@@ -353,34 +359,33 @@ export default function ManageQuestions() {
           </div>
 
           <Card className="border-none shadow-md h-fit">
-            <CardHeader className="bg-slate-50 border-b">
+            <CardHeader className="bg-slate-50 border-b p-4">
               <CardTitle className="text-sm font-black uppercase opacity-60 flex items-center gap-2">
                 <ListChecks className="w-4 h-4"/> Questions ({questions?.length || 0})
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 max-h-[600px] overflow-y-auto">
+            <CardContent className="p-0 max-h-[400px] sm:max-h-[600px] overflow-y-auto">
               {(!questions || questions.length === 0) ? (
-                <div className="p-12 text-center text-slate-300 font-bold italic">Empty</div>
+                <div className="p-8 sm:p-12 text-center text-slate-300 font-bold italic">Empty</div>
               ) : (
                 questions.map((q: any, i) => (
-                  <div key={q.id} className="p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors">
-                    <div className="truncate flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                  <div key={q.id} className="p-3 sm:p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors">
+                    <div className="truncate flex-1 pr-2">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</span>
-                        {/* Image Icon Indicator */}
                         {q.image_url && <ImageIcon className="w-3 h-3 text-indigo-500" />}
                         <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{q.marks}</span>
                         {q.negative_marks > 0 && (
                           <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">-{q.negative_marks}</span>
                         )}
                       </div>
-                      <p className="font-bold truncate text-slate-700 text-sm">
+                      <p className="font-bold truncate text-slate-700 text-xs sm:text-sm">
                         {q.question_text ? q.question_text : <span className="italic text-slate-400">Image Based Question</span>}
                       </p>
                     </div>
-                    <div className="flex gap-1 ml-4">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-8 w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-7 w-7 sm:h-8 sm:w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
                     </div>
                   </div>
                 ))
@@ -391,4 +396,5 @@ export default function ManageQuestions() {
       </div>
     </div>
   )
-                }
+}
+
