@@ -1,25 +1,31 @@
-/* Sabse pehle apna naya font lagate hain */
+/* Poppins font apply kiya */
 * {
   font-family: 'Poppins', sans-serif !important;
+  box-sizing: border-box;
 }
 
 #root {
-  width: 100%;
-  margin: 0 auto;
-  /* padding: 2rem; -> Ise hata diya taaki mobile screen par side mein khaali jagah na bache */
+  /* SCREEN FIT FIX: Vite ki default padding aur constraints hata diye */
+  width: 100% !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important; 
   text-align: center;
+  overflow-x: hidden;
 }
 
-/* Baaki tumhara purana code same hai */
+/* Logo and Animation styling */
 .logo {
   height: 6em;
   padding: 1.5em;
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
