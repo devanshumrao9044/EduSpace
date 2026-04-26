@@ -25,40 +25,28 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          # Sabhi plugins ko project ke andar install kar rahe hain taaki Vite ko mil sakein
-          npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install --legacy-peer-deps
-          # Assets tool globally theek hai
+          npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
-      - name: Setup Capacitor & Config Fix
+      - name: Setup Capacitor & Sync
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           
+          # Capacitor config fix
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
 
-          if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
-            mkdir -p backup_manifest
-            if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
-              cp android/app/src/main/AndroidManifest.xml backup_manifest/
-            fi
-            rm -rf android
-            npx cap add android
-            if [ -f "backup_manifest/AndroidManifest.xml" ]; then
-              mkdir -p android/app/src/main/
-              cp backup_manifest/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-            fi
-            rm -rf backup_manifest
-          elif [ ! -d "android" ]; then
+          # Android folder refresh logic
+          if [ -d "android" ]; then
+            npx cap sync android
+          else
             npx cap add android
           fi
-          
-          npx cap sync android
 
       - name: 🚀 LOGO & ICON GENERATION
         run: |
@@ -72,20 +60,23 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: Fix Kotlin & Permissions
+      - name: Fix Kotlin & Gradle Clean 🧹
         run: |
           cd android
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
+          # Ye line purane corrupt jars ko delete karegi
+          ./gradlew clean 
 
       - name: Build Android APK (Debug)
         run: |
           cd android
-          ./gradlew assembleDebug
+          # Memory issue se bachne ke liye thoda extra dum
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Fixed
+          name: Rankify-Final-Success
           path: android/app/build/outputs/apk/debug/app-debug.apk
