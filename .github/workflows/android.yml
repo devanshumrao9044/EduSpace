@@ -26,22 +26,21 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
-          # Naya File Picker aur Assets tool install kar rahe hain
-          npm install @capawesome/capacitor-file-picker @capacitor/assets -g
+          # File Picker ke saath Filesystem plugin bhi install kar rahe hain popup ke liye
+          npm install @capawesome/capacitor-file-picker @capacitor/filesystem @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
       - name: Setup Capacitor & Config Fix
         run: |
-          npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
+          # Plugins ko local project mein add kar rahe hain taaki sync ho sakein
+          npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 @capawesome/capacitor-file-picker @capacitor/filesystem --legacy-peer-deps
           
-          # Config file check (appId error fix)
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
 
-          # Android folder fix logic (Step 1.1 ke Manifest ko bachane ke liye)
           if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
             mkdir -p backup_manifest
             if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
@@ -58,7 +57,7 @@ jobs:
             npx cap add android
           fi
           
-          # Naye plugin ko Android project ke saath sync karna zaroori hai
+          # Sabhi naye plugins ko Android project ke saath sync kar rahe hain
           npx cap sync android
 
       - name: 🚀 LOGO & ICON GENERATION
@@ -72,7 +71,7 @@ jobs:
             cp logo.png assets/splash-dark.png
             npx @capacitor/assets generate --android
           else
-            echo "Error: logo.png not found in root folder!"
+            echo "Error: logo.png not found!"
             exit 1
           fi
 
