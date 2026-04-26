@@ -26,8 +26,8 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install --legacy-peer-deps
-          # Assets tool ko globally install kar rahe hain icons ke liye
-          npm install @capacitor/assets -g
+          # Naya File Picker aur Assets tool install kar rahe hain
+          npm install @capawesome/capacitor-file-picker @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
@@ -41,7 +41,7 @@ jobs:
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
 
-          # Android folder fix logic
+          # Android folder fix logic (Step 1.1 ke Manifest ko bachane ke liye)
           if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
             mkdir -p backup_manifest
             if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
@@ -58,11 +58,11 @@ jobs:
             npx cap add android
           fi
           
+          # Naye plugin ko Android project ke saath sync karna zaroori hai
           npx cap sync android
 
       - name: 🚀 LOGO & ICON GENERATION
         run: |
-          # Assets folder banakar logo ko wahan copy kar rahe hain
           mkdir -p assets
           if [ -f "logo.png" ]; then
             cp logo.png assets/icon-only.png
@@ -70,8 +70,6 @@ jobs:
             cp logo.png assets/icon-background.png
             cp logo.png assets/splash.png
             cp logo.png assets/splash-dark.png
-            
-            # Icons generate kar rahe hain (Android ke liye)
             npx @capacitor/assets generate --android
           else
             echo "Error: logo.png not found in root folder!"
@@ -93,5 +91,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify
+          name: Rankify-Final-Build
           path: android/app/build/outputs/apk/debug/app-debug.apk
