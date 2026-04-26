@@ -43,12 +43,22 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: 🚀 Asset Generation
+      - name: 🚀 Asset Generation (Logo Fix)
         run: |
-          mkdir -p assets
-          cp logo.png assets/icon-only.png || true
-          cp logo.png assets/splash.png || true
-          npx @capacitor/assets generate --android || true
+          # Check kar rahe hain ki logo.png root folder mein hai ya nahi
+          if [ -f "logo.png" ]; then
+            echo "✅ Logo mil gaya! Assets generate kar rahe hain..."
+            mkdir -p assets
+            # Capacitor by default 'icon.png' dhoondhta hai, isliye rename karke copy kar rahe hain
+            cp logo.png assets/icon.png
+            cp logo.png assets/splash.png
+            
+            # Ye command Android folder mein saare size ke logos set kar degi
+            npx @capacitor/assets generate --android
+          else
+            echo "⚠️ ERROR: 'logo.png' tumhari repository ke main folder mein nahi mili! Isliye default logo aayega."
+            echo "Solution: Apna logo 'logo.png' ke naam se upload karo aur push karo."
+          fi
 
       - name: 🔨 SDK Upgrades & Final Build
         run: |
@@ -57,7 +67,7 @@ jobs:
           # Gradle Upgrade
           sed -i 's/gradle-8.2.1-all.zip/gradle-8.7-all.zip/g' gradle/wrapper/gradle-wrapper.properties
           
-          # 🚨 NAYA FIX: Min SDK ko 24 kar rahe hain taaki Filesystem plugin khush rahe 🚨
+          # Min SDK & Target SDK Upgrades
           sed -i 's/minSdkVersion = 22/minSdkVersion = 24/g' variables.gradle
           sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/g' variables.gradle
           sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/g' variables.gradle
