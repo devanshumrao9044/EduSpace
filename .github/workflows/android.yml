@@ -2,7 +2,7 @@ name: Build Rankify APK
 
 on:
   push:
-    branches: [ main ] # Jab bhi tum 'main' branch par code push karoge, ye chalega
+    branches: [ main ]
 
 jobs:
   build:
@@ -24,32 +24,39 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm install
+          # Logo banane wala tool install karna
+          npm install @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
       - name: Setup Capacitor
         run: |
-          # Capacitor aur Android tools install karna
           npm install @capacitor/cli @capacitor/core @capacitor/android
-          
-          # Agar config file nahi hai toh naya project init karo
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
-            # NOTE: Agar build folder 'build' hai toh 'dist' ko 'build' kar dena
             npx cap init Rankify com.materialhub.app --web-dir dist
           fi
-          
-          # Android folder add karna
           if [ ! -d "android" ]; then
             npx cap add android
+          fi
+
+      - name: Generate App Icons
+        run: |
+          # Agar logo.png maujood hai, toh icons generate karo
+          if [ -f "logo.png" ]; then
+            mkdir -p assets
+            cp logo.png assets/icon-only.png
+            cp logo.png assets/icon-foreground.png
+            cp logo.png assets/icon-background.png
+            npx capacitor-assets generate --android
           fi
 
       - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Fix Kotlin Duplicate Class Error
-        # Ye step duplicate libraries ki ladayi khatam karega
         run: |
           echo "
           subprojects {
@@ -65,12 +72,11 @@ jobs:
       - name: Build Android APK (Debug)
         run: |
           cd android
-          # Gradle ko permission dena
           chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-App-Package
+          name: Rankify-App-With-Logo
           path: android/app/build/outputs/apk/debug/app-debug.apk
