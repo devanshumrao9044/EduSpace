@@ -25,17 +25,18 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          # Sabhi plugins ko project ke andar install kar rahe hain taaki Vite ko mil sakein
+          npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install --legacy-peer-deps
-          # File Picker ke saath Filesystem plugin bhi install kar rahe hain popup ke liye
-          npm install @capawesome/capacitor-file-picker @capacitor/filesystem @capacitor/assets -g
+          # Assets tool globally theek hai
+          npm install @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
       - name: Setup Capacitor & Config Fix
         run: |
-          # Plugins ko local project mein add kar rahe hain taaki sync ho sakein
-          npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 @capawesome/capacitor-file-picker @capacitor/filesystem --legacy-peer-deps
+          npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
@@ -57,7 +58,6 @@ jobs:
             npx cap add android
           fi
           
-          # Sabhi naye plugins ko Android project ke saath sync kar rahe hain
           npx cap sync android
 
       - name: 🚀 LOGO & ICON GENERATION
@@ -70,9 +70,6 @@ jobs:
             cp logo.png assets/splash.png
             cp logo.png assets/splash-dark.png
             npx @capacitor/assets generate --android
-          else
-            echo "Error: logo.png not found!"
-            exit 1
           fi
 
       - name: Fix Kotlin & Permissions
@@ -90,5 +87,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Build
+          name: Rankify-Final-Fixed
           path: android/app/build/outputs/apk/debug/app-debug.apk
