@@ -23,16 +23,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Dependencies
+      - name: 📦 Install Essential Dependencies
         run: |
           npm install --legacy-peer-deps
+          # Vite build ke liye plugins ko project mein save karna zaroori hai
           npm install @capacitor/filesystem @capawesome/capacitor-file-picker --save --legacy-peer-deps
           npm install @capacitor/assets -g
 
       - name: Build React Project
         run: npm run build
 
-      - name: Setup Capacitor & Force Sync 🛠️
+      - name: 🛠️ Capacitor Setup & Repair
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           
@@ -40,9 +41,8 @@ jobs:
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
 
-          # AGGRESSIVE FIX: Agar android folder hai par gradlew missing hai, toh usey delete karke naya banao
+          # Agar folder corrupt hai toh naya banao
           if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
-            echo "Gradlew missing! Fixing android folder..."
             rm -rf android
           fi
 
@@ -64,27 +64,29 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: Fix Kotlin & Permissions
+      - name: ☢️ NUCLEAR CONFLICT FIXER (The Final Cure)
         run: |
           cd android
-          # Dobara check kar rahe hain taaki error na aaye
-          if [ -f "gradlew" ]; then
-            echo "android.useAndroidX=true" >> gradle.properties
-            echo "android.enableJetifier=true" >> gradle.properties
-            chmod +x gradlew
-            ./gradlew clean
-          else
-            echo "Error: Gradlew still not found!"
-            exit 1
-          fi
+          # 1. Force use of AndroidX and Jetifier
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
+          # 2. Force Gradle to use ONLY version 1.78 of BouncyCastle (bcprov)
+          # Ye line build.gradle mein 'allprojects' ke andar resolution strategy ghusa degi
+          sed -i '/allprojects {/a \    configurations.all { resolutionStrategy { force "org.bouncycastle:bcprov-jdk18on:1.78" } }' build.gradle
+          
+          # 3. Clean environment
+          chmod +x gradlew
+          ./gradlew clean
 
-      - name: Build Android APK (Debug)
+      - name: 🔨 Final Build Execution
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          # Workers=1 aur no-daemon taaki memory jhagda na ho
+          ./gradlew assembleDebug --no-daemon --max-workers=1 --no-parallel
 
-      - name: Upload APK Artifact
+      - name: 📤 Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Success
+          name: Rankify-Final-Fixed-Build
           path: android/app/build/outputs/apk/debug/app-debug.apk
