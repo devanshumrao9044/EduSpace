@@ -30,20 +30,36 @@
 }
 
 @layer base {
-  /* 👇 YAHAN HUMNE NAYA FIX ADD KIYA HAI ZOOM HATANE KE LIYE 👇 */
   html {
+    /* 1. Android/iOS ki auto text sizing band karo */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    
+    /* 2. ZOOM OUT FIX: Base 16px ko 14px kiya */
+    /* Isse poori app mobile ke liye compact ho jayegi */
     font-size: 14px !important; 
+    
+    box-sizing: border-box;
   }
-  /* 👆 YAHAN TAK NAYA HAI 👆 */
+
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    padding: 0;
+    
+    /* 3. SCREEN FIT: Horizontal scroll ko block karo */
+    width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    
+    /* Touch devices par smooth feel ke liye */
+    -webkit-overflow-scrolling: touch;
+  }
 
   * {
     @apply border-border;
-    /* Ye line poori app mein Poppins font laga degi */
+    /* Poori app mein Poppins font */
     font-family: 'Poppins', sans-serif !important; 
-  }
-  body {
-    @apply bg-background text-foreground;
+    box-sizing: border-box;
   }
 }
