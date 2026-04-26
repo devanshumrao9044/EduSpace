@@ -77,7 +77,7 @@ export default function ManageQuestions() {
       toast.success('Image successfully uploaded!')
     } catch (error: any) {
       console.error(error)
-      toast.error('Image upload failed. Bucket check karo.')
+      toast.error('Image upload failed')
     } finally {
       setIsUploadingImage(false)
     }
@@ -127,7 +127,7 @@ export default function ManageQuestions() {
     
     let finalAnswer = formData.correct_answer
     if (questionType === 'mcq' && !['A', 'B', 'C', 'D'].includes(finalAnswer)) {
-      toast.error("Please select a valid option (A, B, C, or D) for the correct answer.")
+      toast.error("Please select a valid option for correct answer.")
       return
     }
 
@@ -195,10 +195,11 @@ export default function ManageQuestions() {
   )
 
   return (
-    // 👇 FIX 1: pt-12 (Padding Top) add kiya taaki Status Bar se overlap na ho
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 p-4 pt-12 sm:p-8 sm:pt-8 font-sans">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Button variant="ghost" onClick={() => navigate('/admin/quizzes')} className="font-bold -ml-2">
+    // 👇 FIX 1: pt-[max(env(safe-area-inset-top),3rem)] - Ye har phone ka notch automatically detect karega
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-gray-50 p-3 pt-[max(env(safe-area-inset-top),3rem)] pb-[env(safe-area-inset-bottom)] sm:p-8 font-sans box-border">
+      <div className="w-full max-w-6xl mx-auto space-y-6">
+        
+        <Button variant="ghost" onClick={() => navigate('/admin/quizzes')} className="font-bold">
           <ArrowLeft className="mr-2 h-4 w-4"/> Back
         </Button>
 
@@ -276,17 +277,17 @@ export default function ManageQuestions() {
 
                   <Textarea
                     placeholder={formData.image_url ? "Type question text here (Optional)..." : "Enter question text..."}
-                    className="min-h-[120px] text-base sm:text-lg font-medium rounded-xl w-full"
+                    className="min-h-[120px] text-base sm:text-lg font-medium rounded-xl w-full box-border"
                     value={formData.question_text}
                     onChange={e => setFormData({...formData, question_text: e.target.value})}
                   />
                   
                   {questionType === 'mcq' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})} required className="w-full"/>
-                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})} required className="w-full"/>
-                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})} required className="w-full"/>
-                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required className="w-full"/>
+                      <Input placeholder="Option A" value={formData.optionA} onChange={e => setFormData({...formData, optionA: e.target.value})} required className="w-full box-border"/>
+                      <Input placeholder="Option B" value={formData.optionB} onChange={e => setFormData({...formData, optionB: e.target.value})} required className="w-full box-border"/>
+                      <Input placeholder="Option C" value={formData.optionC} onChange={e => setFormData({...formData, optionC: e.target.value})} required className="w-full box-border"/>
+                      <Input placeholder="Option D" value={formData.optionD} onChange={e => setFormData({...formData, optionD: e.target.value})} required className="w-full box-border"/>
                     </div>
                   )}
                   
@@ -295,7 +296,7 @@ export default function ManageQuestions() {
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Correct Answer</label>
                       {questionType === 'mcq' ? (
                         <select
-                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 box-border"
                           value={formData.correct_answer}
                           onChange={e => setFormData({...formData, correct_answer: e.target.value})}
                           required
@@ -312,13 +313,13 @@ export default function ManageQuestions() {
                           value={formData.correct_answer}
                           onChange={e => setFormData({...formData, correct_answer: e.target.value})}
                           required
-                          className="w-full"
+                          className="w-full box-border"
                         />
                       )}
                     </div>
 
                     <div className="flex gap-3 sm:gap-4 sm:col-span-2">
-                      <div className="space-y-1 flex-1">
+                      <div className="space-y-1 flex-1 min-w-0">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Marks (+)</label>
                         <Input
                           type="number"
@@ -327,11 +328,11 @@ export default function ManageQuestions() {
                           onChange={e => setFormData({...formData, marks: parseFloat(e.target.value) || 1})}
                           min={0}
                           step="0.25"
-                          className="w-full"
+                          className="w-full box-border"
                         />
                       </div>
 
-                      <div className="space-y-1 flex-1">
+                      <div className="space-y-1 flex-1 min-w-0">
                         <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Negative (-)</label>
                         <Input
                           type="number"
@@ -340,13 +341,13 @@ export default function ManageQuestions() {
                           onChange={e => setFormData({...formData, negative_marks: parseFloat(e.target.value) || 0})}
                           min={0}
                           step="0.25"
-                          className="w-full"
+                          className="w-full box-border"
                         />
                       </div>
                     </div>
                   </div>
                   
-                  <Button type="submit" disabled={isUploadingImage} className={`w-full h-14 font-black text-lg mt-4 ${editingId ? 'bg-indigo-600' : 'bg-slate-900'} disabled:opacity-50`}>
+                  <Button type="submit" disabled={isUploadingImage} className={`w-full h-14 font-black text-lg mt-4 box-border ${editingId ? 'bg-indigo-600' : 'bg-slate-900'} disabled:opacity-50`}>
                     {editingId ? "SAVE CHANGES" : "ADD QUESTION"}
                   </Button>
                 </form>
@@ -365,11 +366,11 @@ export default function ManageQuestions() {
                 <div className="p-8 sm:p-12 text-center text-slate-300 font-bold italic">Empty</div>
               ) : (
                 questions.map((q: any, i) => (
-                  <div key={q.id} className="p-3 sm:p-4 border-b flex justify-between items-center hover:bg-slate-50 transition-colors w-full">
+                  // 👇 FIX 2: Strict GRID layout. 'minmax(0,1fr)' text ko shrink hone par majboor karega, 'auto' icons ko exact jagah dega. Ye cut ho hi nahi sakta.
+                  <div key={q.id} className="p-3 sm:p-4 border-b grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center hover:bg-slate-50 transition-colors w-full box-border">
                     
-                    {/* 👇 FIX 2: min-w-0 add kiya taaki truncate kaam kare aur dhakka na de */}
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <div className="flex flex-col gap-1 pr-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-black text-slate-400">#0{i + 1} | {q.question_type.toUpperCase()}</span>
                         {q.image_url && <ImageIcon className="w-3 h-3 text-indigo-500" />}
                         <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">+{q.marks}</span>
@@ -382,10 +383,9 @@ export default function ManageQuestions() {
                       </p>
                     </div>
                     
-                    {/* 👇 FIX 3: shrink-0 add kiya taaki icons hamesha dikhen, screen ke bahar na jayen */}
-                    <div className="flex gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-7 w-7 sm:h-8 sm:w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-3 w-3 sm:h-4 sm:w-4" /></Button>
+                    <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(q)} className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(q.id)} className="h-8 w-8 text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></Button>
                     </div>
 
                   </div>
