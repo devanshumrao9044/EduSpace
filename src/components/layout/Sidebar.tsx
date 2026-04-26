@@ -101,12 +101,15 @@ export default function Sidebar({ user }: SidebarProps) {
           {/* Logo & User Info */}
           <div className="p-6 border-b">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                <BookOpen className="w-7 h-7 text-white" />
-              </div>
+              {/* Yahan par humne BookOpen icon hata kar logo.png laga diya hai */}
+              <img 
+                src="/logo.png" 
+                alt="Rankify Logo" 
+                className="w-12 h-12 rounded-xl object-cover shadow-sm border border-gray-100" 
+              />
               <div>
-                <h1 className="text-xl font-bold text-foreground">EduSpace</h1>
-                <p className="text-xs text-muted-foreground">Learning Platform</p>
+                <h1 className="text-xl font-bold text-foreground">RANKIFY</h1>
+                <p className="text-xs text-muted-foreground">Quiz Platform</p>
               </div>
             </div>
             
@@ -199,3 +202,4 @@ export default function Sidebar({ user }: SidebarProps) {
     </>
   )
 }
+
