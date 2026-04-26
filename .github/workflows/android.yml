@@ -32,21 +32,19 @@ jobs:
       - name: Build React Project
         run: npm run build
 
-      - name: 🛠️ Capacitor Setup & Folder Fix
+      - name: 🛠️ Capacitor Setup & Repair
         run: |
           npm install @capacitor/cli@6 @capacitor/core@6 @capacitor/android@6 --legacy-peer-deps
           if [ ! -f "capacitor.config.json" ] && [ ! -f "capacitor.config.ts" ]; then
             echo '{"appId": "com.materialhub.app", "appName": "Rankify", "webDir": "dist"}' > capacitor.config.json
           fi
           
-          # Force repair android folder
-          if [ -d "android" ] && [ ! -f "android/gradlew" ]; then
-            rm -rf android
-          fi
-          if [ ! -d "android" ]; then
-            npx cap add android
-          else
+          if [ -d "android" ]; then
+            # Pura purana kachra saaf karo
+            rm -rf android/.gradle
             npx cap sync android
+          else
+            npx cap add android
           fi
 
       - name: 🚀 LOGO & ICON GENERATION
@@ -61,9 +59,10 @@ jobs:
             npx @capacitor/assets generate --android
           fi
 
-      - name: ☢️ CREATE GLOBAL JAR FIXER (init.gradle)
+      - name: ☢️ SYSTEM-LEVEL JAR FIX (The Final Solution)
         run: |
-          # Ye file Gradle ke saare conflicts ko jadd se khatam karegi
+          # Gradle ke home directory mein master fix daal rahe hain
+          mkdir -p ~/.gradle
           echo "allprojects {
               configurations.all {
                   resolutionStrategy {
@@ -71,19 +70,22 @@ jobs:
                       force 'org.bouncycastle:bcpkix-jdk18on:1.78'
                   }
               }
-          }" > init.gradle
-
-      - name: 🔨 Final Build Execution
-        run: |
+          }" > ~/.gradle/init.gradle
+          
+          # Android folder ke andar ke conflict ko bhi force-fix karo
           cd android
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
-          # --init-script use karke humne rule ko global bana diya hai
-          ./gradlew assembleDebug --init-script ../init.gradle --no-daemon --max-workers=1 --no-parallel
 
-      - name: 📤 Upload Final APK
+      - name: 🔨 Build Android APK
+        run: |
+          cd android
+          # --no-daemon aur workers=1 taaki koi file lock na ho
+          ./gradlew assembleDebug --no-daemon --max-workers=1 --no-parallel
+
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rankify-Final-Fixed
+          name: Rankify-Final-Success
           path: android/app/build/outputs/apk/debug/app-debug.apk
