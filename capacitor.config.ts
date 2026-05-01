@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.materialhub.app.', // Isko tu apne hisaab se badal lena baad mein
+  appId: 'com.materialhub.app',
   appName: 'Rankify',
   webDir: 'dist',
   plugins: {
